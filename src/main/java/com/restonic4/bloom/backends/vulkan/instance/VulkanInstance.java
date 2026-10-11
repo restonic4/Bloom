@@ -9,7 +9,7 @@ import org.lwjgl.vulkan.*;
 import static org.lwjgl.glfw.GLFWVulkan.glfwGetRequiredInstanceExtensions;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
-import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK14.*;
 
 public class VulkanInstance implements Disposable {
     private final VkInstance vkInstance;
@@ -38,7 +38,7 @@ public class VulkanInstance implements Disposable {
                     .applicationVersion(vkAppVersion)
                     .pEngineName(stack.UTF8(engineName))
                     .engineVersion(vkEngineVersion)
-                    .apiVersion(VK_API_VERSION_1_0);
+                    .apiVersion(VK_API_VERSION_1_4);
 
 
             PointerBuffer requiredExtensions = getRequiredExtensions(stack, enableValidationLayers);
