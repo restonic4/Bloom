@@ -7,6 +7,7 @@ import org.lwjgl.vulkan.*;
 
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceFeatures2;
 
 public class VulkanLogicalDevice implements Disposable {
     private static final String[] DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
@@ -55,15 +56,29 @@ public class VulkanLogicalDevice implements Disposable {
 
             // Device features
 
-            VkPhysicalDeviceFeatures deviceFeatures = VkPhysicalDeviceFeatures.calloc(stack);
+            VkPhysicalDeviceVulkan13Features enabled13 = VkPhysicalDeviceVulkan13Features.calloc(stack)
+                    .sType$Default()
+                    .dynamicRendering(true)
+                    .synchronization2(true);
+
+            VkPhysicalDeviceVulkan12Features enabled12 = VkPhysicalDeviceVulkan12Features.calloc(stack)
+                    .sType$Default()
+                    .timelineSemaphore(true)
+                    .pNext(enabled13.address());
+
+            VkPhysicalDeviceFeatures2 enabledFeatures = VkPhysicalDeviceFeatures2.calloc(stack)
+                    .sType$Default()
+                    .pNext(enabled12.address());
+
+            enabledFeatures.features().geometryShader(true);
 
             // Logical device
 
             VkDeviceCreateInfo createInfo = VkDeviceCreateInfo.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO)
+                    .pNext(enabledFeatures.address())
                     .pQueueCreateInfos(queueCreateInfo)
-                    .ppEnabledExtensionNames(deviceExtensions)
-                    .pEnabledFeatures(deviceFeatures);
+                    .ppEnabledExtensionNames(deviceExtensions);
 
             PointerBuffer pDevice = stack.pointers(VK_NULL_HANDLE);
 
