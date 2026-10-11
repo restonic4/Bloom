@@ -3,12 +3,14 @@ package com.restonic4.bloom.backends.vulkan.device;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkPhysicalDevice;
 import org.lwjgl.vulkan.VkQueueFamilyProperties;
+import org.lwjgl.vulkan.VkQueueFamilyProperties2;
 
 import java.nio.IntBuffer;
 import java.util.stream.IntStream;
 
 import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceQueueFamilyProperties2;
 
 public class QueueFamilyIndices {
     private Integer graphics, present;
@@ -19,17 +21,17 @@ public class QueueFamilyIndices {
         try(MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer queueFamilyCount = stack.ints(0);
 
-            vkGetPhysicalDeviceQueueFamilyProperties(device, queueFamilyCount, null);
+            vkGetPhysicalDeviceQueueFamilyProperties2(device, queueFamilyCount, null);
 
-            VkQueueFamilyProperties.Buffer queueFamilies = VkQueueFamilyProperties.malloc(queueFamilyCount.get(0), stack);
+            VkQueueFamilyProperties2.Buffer queueFamilies = VkQueueFamilyProperties2.calloc(queueFamilyCount.get(0), stack);
 
-            vkGetPhysicalDeviceQueueFamilyProperties(device, queueFamilyCount, queueFamilies);
+            vkGetPhysicalDeviceQueueFamilyProperties2(device, queueFamilyCount, queueFamilies);
 
             IntBuffer presentSupport = stack.ints(VK_FALSE);
 
             IntStream.range(0, queueFamilies.capacity())
                     .forEach(index -> {
-                        int flags = queueFamilies.get(index).queueFlags();
+                        int flags = queueFamilies.get(index).queueFamilyProperties().queueFlags();
 
                         if ((flags & VK_QUEUE_GRAPHICS_BIT) != 0) {
                             indices.graphics = index;
