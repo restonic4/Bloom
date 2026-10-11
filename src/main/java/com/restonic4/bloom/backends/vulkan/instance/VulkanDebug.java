@@ -77,7 +77,19 @@ public class VulkanDebug {
 
     private static int debugCallback(int messageSeverity, int messageType, long pCallbackData, long pUserData) {
         VkDebugUtilsMessengerCallbackDataEXT callbackData = VkDebugUtilsMessengerCallbackDataEXT.create(pCallbackData);
-        System.err.println("Validation layer: " + callbackData.pMessageString());
+
+        String message = callbackData.pMessageString();
+
+        if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+            System.err.println("[VulkanDebug ERROR] " + message);
+        } else if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) != 0) {
+            System.err.println("[VulkanDebug WARNING] " + message);
+        } else if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) != 0) {
+            System.out.println("[VulkanDebug INFO] " + message);
+        } else if ((messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) != 0) {
+            System.out.println("[VulkanDebug VERBOSE] " + message);
+        }
+
         return VK_FALSE;
     }
 
