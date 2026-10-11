@@ -33,6 +33,9 @@ public class QueueFamilyIndices {
             vkGetPhysicalDeviceQueueFamilyProperties2(device, queueFamilyCount, null);
 
             VkQueueFamilyProperties2.Buffer queueFamilies = VkQueueFamilyProperties2.calloc(queueFamilyCount.get(0), stack);
+            for (int i = 0; i < queueFamilies.capacity(); i++) {
+                queueFamilies.get(i).sType$Default();
+            }
 
             vkGetPhysicalDeviceQueueFamilyProperties2(device, queueFamilyCount, queueFamilies);
 
