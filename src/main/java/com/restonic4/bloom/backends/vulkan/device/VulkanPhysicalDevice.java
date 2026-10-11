@@ -26,14 +26,7 @@ public class VulkanPhysicalDevice {
 
     public static VulkanPhysicalDevice pickBestDevice(VkInstance instance, long surface) {
         try(MemoryStack stack = MemoryStack.stackPush()) {
-            IntBuffer deviceCount = stack.ints(0);
-            vkEnumeratePhysicalDevices(instance, deviceCount, null);
-
-            if (deviceCount.get(0) == 0) throw new RuntimeException("Failed to find GPUs with Vulkan support");
-
-            PointerBuffer physicalDevices = stack.mallocPointer(deviceCount.get(0));
-
-            vkEnumeratePhysicalDevices(instance, deviceCount, physicalDevices);
+            PointerBuffer physicalDevices = enumeratePhysicalDevices(instance, stack);
 
             VulkanPhysicalDevice bestDevice = null;
             ScoreData bestScore = null;
@@ -53,6 +46,18 @@ public class VulkanPhysicalDevice {
             if (bestDevice == null) throw new RuntimeException("Failed to find a suitable GPU");
             return bestDevice;
         }
+    }
+
+    private static PointerBuffer enumeratePhysicalDevices(VkInstance instance, MemoryStack stack) {
+        IntBuffer deviceCount = stack.ints(0);
+
+        vkEnumeratePhysicalDevices(instance, deviceCount, null);
+        if (deviceCount.get(0) == 0) throw new RuntimeException("Failed to find GPUs with Vulkan support");
+
+        PointerBuffer physicalDevices = stack.mallocPointer(deviceCount.get(0));
+        vkEnumeratePhysicalDevices(instance, deviceCount, physicalDevices);
+
+        return physicalDevices;
     }
 
     // TODO: Improve scoring
