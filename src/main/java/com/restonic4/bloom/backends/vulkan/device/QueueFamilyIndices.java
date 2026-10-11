@@ -12,6 +12,15 @@ import static org.lwjgl.vulkan.KHRSurface.vkGetPhysicalDeviceSurfaceSupportKHR;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceQueueFamilyProperties2;
 
+/**
+ * <p>A Queue Family is like a category of work a GPU can do. Some GPUs can or cant do some of them.</p>
+ * <ul>
+ *     <li>Graphics: Draws geometry.</li>
+ *     <li>Compute: Compute shaders.</li>
+ *     <li>Transfer: <span style="color: #D88C8C;">TODO: Not sure</span></li>
+ *     <li>Sparse bindings: <span style="color: #D88C8C;">TODO: Not sure</span></li>
+ * </ul>
+ */
 public class QueueFamilyIndices {
     private Integer graphics, present;
 
