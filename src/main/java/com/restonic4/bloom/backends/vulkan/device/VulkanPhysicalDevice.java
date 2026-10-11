@@ -12,6 +12,8 @@ import java.util.Set;
 import static java.util.stream.Collectors.toSet;
 import static org.lwjgl.vulkan.KHRSwapchain.VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 import static org.lwjgl.vulkan.VK10.*;
+import static org.lwjgl.vulkan.VK11.vkGetPhysicalDeviceFeatures2;
+import static org.lwjgl.vulkan.VK14.VK_API_VERSION_1_4;
 
 public class VulkanPhysicalDevice {
     private static final Set<String> REQUIRED_DEVICE_EXTENSIONS = Set.of(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -67,12 +69,18 @@ public class VulkanPhysicalDevice {
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkPhysicalDeviceProperties properties = VkPhysicalDeviceProperties.calloc(stack);
-
-            VkPhysicalDeviceFeatures features = VkPhysicalDeviceFeatures.calloc(stack);
-
             vkGetPhysicalDeviceProperties(device, properties);
 
-            vkGetPhysicalDeviceFeatures(device, features);
+            // Hard requirement: 1.4 support
+            if (properties.apiVersion() < VK_API_VERSION_1_4) {
+                return null;
+            }
+
+            VkPhysicalDeviceVulkan13Features features13 = VkPhysicalDeviceVulkan13Features.calloc(stack).sType$Default();
+            VkPhysicalDeviceVulkan12Features features12 = VkPhysicalDeviceVulkan12Features.calloc(stack).sType$Default().pNext(features13.address());
+
+            VkPhysicalDeviceFeatures2 features2 = VkPhysicalDeviceFeatures2.calloc(stack).sType$Default().pNext(features12.address());
+            vkGetPhysicalDeviceFeatures2(device, features2);
 
             // Hard requirement: must have graphics queue
             QueueFamilyIndices indices = QueueFamilyIndices.findQueueFamilies(device, surface);
@@ -92,7 +100,22 @@ public class VulkanPhysicalDevice {
             }
 
             // Hard requirement: geometry shaders
-            if (!features.geometryShader()) {
+            if (!features2.features().geometryShader()) {
+                return null;
+            }
+
+            // Hard requirement: timeline semaphores
+            if (!features12.timelineSemaphore()) {
+                return null;
+            }
+
+            // Hard requirement: dynamic rendering
+            if (!features13.dynamicRendering()) {
+                return null;
+            }
+
+            // Hard requirement: synchronization2
+            if (!features13.synchronization2()) {
                 return null;
             }
 
