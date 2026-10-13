@@ -13,13 +13,25 @@ public class VulkanLogicalDevice implements Disposable {
     private static final String[] DEVICE_EXTENSIONS = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
     private final VkDevice handle;
+
     private final VkQueue graphicsQueue;
     private final VkQueue presentQueue;
 
-    private VulkanLogicalDevice(VkDevice handle, VkQueue graphicsQueue, VkQueue presentQueue) {
+    private final int graphicsQueueFamilyIndex;
+    private final int presentQueueFamilyIndex;
+
+    private VulkanLogicalDevice(
+            VkDevice handle,
+            VkQueue graphicsQueue,
+            VkQueue presentQueue,
+            int graphicsQueueFamilyIndex,
+            int presentQueueFamilyIndex
+    ) {
         this.handle = handle;
         this.graphicsQueue = graphicsQueue;
         this.presentQueue = presentQueue;
+        this.graphicsQueueFamilyIndex = graphicsQueueFamilyIndex;
+        this.presentQueueFamilyIndex = presentQueueFamilyIndex;
     }
 
     public static VulkanLogicalDevice create(VulkanPhysicalDevice physicalDevice, long surface) {
@@ -103,11 +115,17 @@ public class VulkanLogicalDevice implements Disposable {
 
             VkQueue presentQueue = new VkQueue(pPresentQueue.get(0), device);
 
-            return new VulkanLogicalDevice(device, graphicsQueue, presentQueue);
+            return new VulkanLogicalDevice(device, graphicsQueue, presentQueue, indices.graphics(), indices.present());
         }
     }
 
     public VkDevice getHandle() { return handle; }
+
+    public VkQueue getGraphicsQueue() { return graphicsQueue; }
+    public VkQueue getPresentQueue() { return presentQueue; }
+
+    public int getGraphicsQueueFamilyIndex() { return graphicsQueueFamilyIndex; }
+    public int getPresentQueueFamilyIndex() { return presentQueueFamilyIndex; }
 
     @Override
     public void dispose() {
