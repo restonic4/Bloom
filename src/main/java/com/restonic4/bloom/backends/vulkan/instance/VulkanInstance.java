@@ -50,7 +50,6 @@ public class VulkanInstance implements Disposable {
 
 
             PointerBuffer requiredExtensions = getRequiredExtensions(stack, enableValidationLayers);
-            if (requiredExtensions == null) throw new IllegalStateException("Failed to get GLFW Vulkan extensions");
 
             VkInstanceCreateInfo createInfo = VkInstanceCreateInfo.calloc(stack)
                     .sType$Default()
