@@ -81,17 +81,16 @@ public class VulkanInstance implements Disposable {
 
     private static PointerBuffer getRequiredExtensions(MemoryStack stack, boolean enabledValidationLayers) {
         PointerBuffer glfwExtensions = glfwGetRequiredInstanceExtensions();
+        if (glfwExtensions == null) throw new IllegalStateException("Failed to get GLFW Vulkan extensions");
 
-        if(enabledValidationLayers) {
-            PointerBuffer extensions = stack.mallocPointer(glfwExtensions.capacity() + 1);
-
-            extensions.put(glfwExtensions);
-            extensions.put(stack.UTF8(VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
-
-            return extensions.rewind();
+        if (!enabledValidationLayers) {
+            return glfwExtensions;
         }
 
-        return glfwExtensions;
+        PointerBuffer extensions = stack.mallocPointer(glfwExtensions.capacity() + 1);
+        extensions.put(glfwExtensions);
+        extensions.put(stack.UTF8(VK_EXT_DEBUG_UTILS_EXTENSION_NAME));
+        return extensions.flip();
     }
 
     @Override
