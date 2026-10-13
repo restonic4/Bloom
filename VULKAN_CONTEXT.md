@@ -1,5 +1,6 @@
 # Vulkan Learning Context (Bloom engine)
 
+https://github.com/lwjglgamedev/vulkanbook/blob/master/bookcontents/chapter-00/chapter-00.md
 > Purpose: summary of a prior chat session, written so Claude Code can read it and continue guiding me with the full picture. Place this file in the project root (or a `docs/` folder) and tell Claude Code to read it first.
 
 ---
