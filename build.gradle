@@ -76,3 +76,55 @@ application {
 tasks.named("distZip", Zip) {
     archiveFileName = "${project.name}-${project.version}-${targetPlatform}.zip"
 }
+
+tasks.register('renderdoc', Exec) {
+    group = 'application'
+    description = 'Launches Unlock under RenderDoc using XWayland.'
+
+    dependsOn tasks.named('classes')
+
+    def javaExecutable = new File(System.getProperty('java.home'), 'bin/java').absolutePath
+
+    def appClasspath = sourceSets.main.runtimeClasspath.asPath
+    def entryPoint = application.mainClass.get()
+
+    def captureDir = layout.buildDirectory.dir('renderdoc').get().asFile
+    def capturePath = new File(captureDir, 'unlock').absolutePath
+
+    workingDir projectDir
+
+    // Use the X11/XWayland environment for the launched application.
+    environment 'XDG_SESSION_TYPE', 'x11'
+
+    doFirst {
+        if (!captureDir.exists() && !captureDir.mkdirs()) {
+            throw new GradleException("Could not create RenderDoc directory: ${captureDir}")
+        }
+
+        // Start RenderDoc's GUI with Qt's X11 backend.
+        try {
+            def gui = new ProcessBuilder('qrenderdoc')
+            gui.directory(projectDir)
+            gui.environment().put('XDG_SESSION_TYPE', 'x11')
+            gui.environment().put('QT_QPA_PLATFORM', 'xcb')
+            gui.start()
+        } catch (Exception e) {
+            throw new GradleException('Could not launch qrenderdoc. Install RenderDoc.', e)
+        }
+
+        logger.lifecycle("Launching ${entryPoint} under RenderDoc")
+        logger.lifecycle("Capture directory: ${captureDir}")
+    }
+
+    commandLine(
+            'renderdoccmd',
+            'capture',
+            '--wait-for-exit',
+            '--working-dir', projectDir.absolutePath,
+            '--capture-file', capturePath,
+            javaExecutable,
+            '-Dengine.windowing=x11',
+            '-cp', appClasspath,
+            entryPoint
+    )
+}

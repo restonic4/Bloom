@@ -18,6 +18,7 @@ import com.restonic4.bloom.backends.vulkan.sync.VulkanFrameSync;
 import com.restonic4.bloom.core.graphics.ShaderSource;
 import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
+import com.restonic4.bloom.core.platform.WindowSystem;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -34,7 +35,12 @@ public class VulkanTest {
     private static final boolean ENABLE_VALIDATION_LAYERS = Configuration.DEBUG.get(true);
 
     public static void init() {
-        GlfwWindow window = new GlfwWindow(500, 500);
+        GlfwWindow window;
+        if ("x11".equalsIgnoreCase(System.getProperty("engine.windowing", ""))) {
+            window = new GlfwWindow(500, 500, WindowSystem.X11);
+        } else {
+            window = new GlfwWindow(500, 500);
+        }
 
         VulkanInstance vkInstance = VulkanInstance.create(
                 "Bloom", new Version(0, 0, 0),

@@ -2,6 +2,7 @@ package com.restonic4.bloom.backends.glfw;
 
 import com.restonic4.bloom.api.events.WindowEvents;
 import com.restonic4.bloom.core.graphics.GraphicsApi;
+import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.window.Window;
 import com.restonic4.bloom.events.EventResult;
 import com.restonic4.unlock.Unlock;
@@ -34,10 +35,18 @@ public class GlfwWindow extends Window {
     private GLFWWindowRefreshCallback refreshCallback;
 
     public GlfwWindow(int width, int height) {
+        this(width, height, WindowSystem.UNKNOWN);
+    }
+
+    public GlfwWindow(int width, int height, WindowSystem windowSystem) {
         super(width, height);
 
         // Print GLFW errors to stderr
         GLFWErrorCallback.createPrint(System.err).set();
+
+        if (windowSystem == WindowSystem.X11) {
+            //glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+        }
 
         if (!glfwInit()) throw new IllegalStateException("Unable to initialize GLFW");
 
