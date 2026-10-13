@@ -6,6 +6,8 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.nio.IntBuffer;
+
 import static org.lwjgl.glfw.GLFWVulkan.glfwGetRequiredInstanceExtensions;
 import static org.lwjgl.glfw.GLFWVulkan.glfwVulkanSupported;
 import static org.lwjgl.vulkan.EXTDebugUtils.*;
@@ -32,6 +34,12 @@ public class VulkanInstance implements Disposable {
         }
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer loaderVersion = stack.ints(0);
+
+            int result = vkEnumerateInstanceVersion(loaderVersion);
+            if (result != VK_SUCCESS) throw new IllegalStateException("Failed to query Vulkan loader version: " + result);
+            if (loaderVersion.get(0) < VK_API_VERSION_1_4) throw new IllegalStateException("Vulkan 1.4 is required, but the loader does not support it");
+
             VkApplicationInfo appInfo = VkApplicationInfo.calloc(stack)
                     .sType$Default()
                     .pApplicationName(stack.UTF8(appName))
@@ -57,7 +65,7 @@ public class VulkanInstance implements Disposable {
 
             PointerBuffer pInstance = stack.mallocPointer(1);
 
-            int result = vkCreateInstance(createInfo, null, pInstance);
+            result = vkCreateInstance(createInfo, null, pInstance);
             if (result != VK_SUCCESS) throw new IllegalStateException("Failed to create Vulkan instance: " + result);
 
             VkInstance rawVkInstance = new VkInstance(pInstance.get(0), createInfo);
