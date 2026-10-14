@@ -12,37 +12,43 @@ import static org.lwjgl.vulkan.VK12.*;
 
 public final class VulkanFrameSync implements Disposable {
     private final VkDevice device;
-    private final long imageAvailableSemaphore;
-    private final long[] renderFinishedSemaphores;
+    private final long[] imageAvailableSemaphores; // One per frame in flight
+    private final long[] renderFinishedSemaphores; // One per swapchain image
     private final long timelineSemaphore;
 
     private long lastSubmittedTimelineValue;
 
     private VulkanFrameSync(
             VkDevice device,
-            long imageAvailableSemaphore,
+            long[] imageAvailableSemaphores,
             long[] renderFinishedSemaphores,
             long timelineSemaphore
     ) {
         this.device = device;
-        this.imageAvailableSemaphore = imageAvailableSemaphore;
+        this.imageAvailableSemaphores = imageAvailableSemaphores;
         this.renderFinishedSemaphores = renderFinishedSemaphores;
         this.timelineSemaphore = timelineSemaphore;
     }
 
-    public static VulkanFrameSync create(VulkanLogicalDevice logicalDevice, int swapchainImageCount) {
+    public static VulkanFrameSync create(VulkanLogicalDevice logicalDevice, int swapchainImageCount, int framesInFlight) {
         if (swapchainImageCount <= 0) {
             throw new IllegalArgumentException("Swapchain image count must be positive");
         }
 
+        if (framesInFlight <= 0) {
+            throw new IllegalArgumentException("Frames in flight must be positive");
+        }
+
         VkDevice device = logicalDevice.getHandle();
 
-        long imageAvailable = VK_NULL_HANDLE;
         long timeline = VK_NULL_HANDLE;
+        long[] imageAvailable = new long[framesInFlight];
         long[] renderFinished = new long[swapchainImageCount];
 
         try {
-            imageAvailable = createBinarySemaphore(device);
+            for (int i = 0; i < imageAvailable.length; i++) {
+                imageAvailable[i] = createBinarySemaphore(device);
+            }
 
             for (int i = 0; i < renderFinished.length; i++) {
                 renderFinished[i] = createBinarySemaphore(device);
@@ -53,7 +59,10 @@ public final class VulkanFrameSync implements Disposable {
             return new VulkanFrameSync(device, imageAvailable, renderFinished, timeline);
         } catch (RuntimeException e) {
             destroyIfCreated(device, timeline);
-            destroyIfCreated(device, imageAvailable);
+
+            for (long semaphore : imageAvailable) {
+                destroyIfCreated(device, semaphore);
+            }
 
             for (long semaphore : renderFinished) {
                 destroyIfCreated(device, semaphore);
@@ -107,7 +116,7 @@ public final class VulkanFrameSync implements Disposable {
         }
     }
 
-    public long getImageAvailableSemaphore() { return imageAvailableSemaphore; }
+    public long getImageAvailableSemaphore(int frameIndex) { return imageAvailableSemaphores[frameIndex]; }
     public long getRenderFinishedSemaphore(int imageIndex) { return renderFinishedSemaphores[imageIndex]; }
     public long getTimelineSemaphore() { return timelineSemaphore; }
     public long nextTimelineValue() { return lastSubmittedTimelineValue + 1; }
@@ -120,8 +129,16 @@ public final class VulkanFrameSync implements Disposable {
         lastSubmittedTimelineValue = value;
     }
 
-    public void waitForLastSubmission() {
-        if (lastSubmittedTimelineValue == 0) {
+    /**
+     * Blocks until the GPU finished the frame that last used the slot we are about to reuse.
+     * With N frames in flight, that is the frame submitted N frames ago, so we wait for the
+     * timeline to reach (last submitted value - (N - 1)). With N = 1 this waits for the last submission.
+     */
+    public void waitForFrameSlot(int framesInFlight) {
+        long targetValue = lastSubmittedTimelineValue - (framesInFlight - 1);
+
+        // Nothing to wait for during the first frames
+        if (targetValue <= 0) {
             return;
         }
 
@@ -130,7 +147,7 @@ public final class VulkanFrameSync implements Disposable {
                     .sType$Default()
                     .semaphoreCount(1)
                     .pSemaphores(stack.longs(timelineSemaphore))
-                    .pValues(stack.longs(lastSubmittedTimelineValue));
+                    .pValues(stack.longs(targetValue));
 
             // -1L represents UINT64_MAX, wait indefinitely
             int result = vkWaitSemaphores(device, waitInfo, -1L);
@@ -146,7 +163,10 @@ public final class VulkanFrameSync implements Disposable {
             vkDestroySemaphore(device, semaphore, null);
         }
 
-        vkDestroySemaphore(device, imageAvailableSemaphore, null);
+        for (long semaphore : imageAvailableSemaphores) {
+            vkDestroySemaphore(device, semaphore, null);
+        }
+
         vkDestroySemaphore(device, timelineSemaphore, null);
     }
 }

@@ -33,6 +33,7 @@ import static org.lwjgl.vulkan.VK13.*;
 
 public class VulkanTest {
     private static final boolean ENABLE_VALIDATION_LAYERS = Configuration.DEBUG.get(true);
+    private static final int FRAMES_IN_FLIGHT = 2;
 
     public static void init() {
         GlfwWindow window;
@@ -78,34 +79,27 @@ public class VulkanTest {
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChain.getImageFormat(), vertexStage, fragmentStage);
 
         VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
-        List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(imageViews.size());
+        List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
 
         long[] swapChainImages = swapChain.getImageHandles();
 
-        if (swapChainImages.length != commandBuffers.size() || imageViews.size() != commandBuffers.size()) {
-            throw new IllegalStateException("Swapchain image, view, and command buffer counts differ");
+        if (swapChainImages.length != imageViews.size()) {
+            throw new IllegalStateException("Swapchain image and view counts differ");
         }
 
-        for (int i = 0; i < commandBuffers.size(); i++) {
-            VulkanCommandBufferRecorder.record(
-                    commandBuffers.get(i),
-                    swapChainImages[i],
-                    imageViews.get(i).getHandle(),
-                    swapChain.getImageWidth(),
-                    swapChain.getImageHeight(),
-                    graphicsPipeline
-            );
-        }
+        VulkanFrameSync frameSync = VulkanFrameSync.create(logicalDevice, swapChain.getImageHandles().length, FRAMES_IN_FLIGHT);
 
-        VulkanFrameSync frameSync = VulkanFrameSync.create(logicalDevice, swapChain.getImageHandles().length);
+        int frameIndex = 0;
 
         while (!window.shouldClose()) {
             glfwPollEvents();
 
-            if (!drawFrame(logicalDevice, swapChain, commandBuffers, frameSync)) {
+            if (!drawFrame(logicalDevice, swapChain, swapChainImages, imageViews, graphicsPipeline, commandBuffers, frameSync, frameIndex)) {
                 System.out.println("Swapchain recreation is required; stopping renderer.");
                 window.setShouldClose(true);
             }
+
+            frameIndex = (frameIndex + 1) % FRAMES_IN_FLIGHT;
         }
 
         int idleResult = vkDeviceWaitIdle(logicalDevice.getHandle());
@@ -133,14 +127,31 @@ public class VulkanTest {
         glfwTerminate();
     }
 
-
+    /**
+     * <p>An example run (the image numbers are made up, since the system chooses them):</p>
+     *
+     * <table style="border-collapse: collapse;">
+     *   <tr>
+     *     <th style="border: 1px solid gray; padding: 4px 8px; text-align: left;">frame</th>
+     *     <th style="border: 1px solid gray; padding: 4px 8px; text-align: left;">frame index</th>
+     *     <th style="border: 1px solid gray; padding: 4px 8px; text-align: left;">image index from acquire</th>
+     *   </tr>
+     *   <tr><td style="border: 1px solid gray; padding: 4px 8px;">0</td><td style="border: 1px solid gray; padding: 4px 8px;">0</td><td style="border: 1px solid gray; padding: 4px 8px;">2</td></tr>
+     *   <tr><td style="border: 1px solid gray; padding: 4px 8px;">1</td><td style="border: 1px solid gray; padding: 4px 8px;">1</td><td style="border: 1px solid gray; padding: 4px 8px;">0</td></tr>
+     *   <tr><td style="border: 1px solid gray; padding: 4px 8px;">2</td><td style="border: 1px solid gray; padding: 4px 8px;">0</td><td style="border: 1px solid gray; padding: 4px 8px;">1</td></tr>
+     * </table>
+     */
     private static boolean drawFrame(
             VulkanLogicalDevice logicalDevice,
             VulkanSwapChain swapChain,
+            long[] swapChainImages,
+            VulkanSwapChainImageViews imageViews,
+            VulkanGraphicsPipeline graphicsPipeline,
             List<VkCommandBuffer> commandBuffers,
-            VulkanFrameSync frameSync
+            VulkanFrameSync frameSync,
+            int frameIndex
     ) {
-        frameSync.waitForLastSubmission();
+        frameSync.waitForFrameSlot(FRAMES_IN_FLIGHT);
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
@@ -152,7 +163,7 @@ public class VulkanTest {
                     logicalDevice.getHandle(),
                     swapChain.getHandle(),
                     -1L,
-                    frameSync.getImageAvailableSemaphore(),
+                    frameSync.getImageAvailableSemaphore(frameIndex),
                     VK_NULL_HANDLE,
                     pImageIndex
             );
@@ -167,9 +178,24 @@ public class VulkanTest {
 
             int imageIndex = pImageIndex.get(0);
 
-            if (imageIndex < 0 || imageIndex >= commandBuffers.size()) {
+            if (imageIndex < 0 || imageIndex >= swapChainImages.length) {
                 throw new IllegalStateException("Invalid acquired image index: " + imageIndex);
             }
+
+            // Record this frame's commands. The slot's command buffer is free again, because
+            // waitForFrameSlot() above waited for the frame that last used this slot.
+            // vkBeginCommandBuffer resets it, since the pool has RESET_COMMAND_BUFFER_BIT.
+
+            VkCommandBuffer commandBuffer = commandBuffers.get(frameIndex);
+
+            VulkanCommandBufferRecorder.record(
+                    commandBuffer,
+                    swapChainImages[imageIndex],
+                    imageViews.get(imageIndex).getHandle(),
+                    swapChain.getImageWidth(),
+                    swapChain.getImageHeight(),
+                    graphicsPipeline
+            );
 
             // Prepare the semaphore and timeline signal values
 
@@ -182,7 +208,7 @@ public class VulkanTest {
             VkSemaphoreSubmitInfo.Buffer waitInfos = VkSemaphoreSubmitInfo.calloc(1, stack);
             waitInfos.get(0)
                     .sType$Default()
-                    .semaphore(frameSync.getImageAvailableSemaphore())
+                    .semaphore(frameSync.getImageAvailableSemaphore(frameIndex))
                     .value(0L)
                     .stageMask(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
                     .deviceIndex(0);
@@ -192,7 +218,7 @@ public class VulkanTest {
             VkCommandBufferSubmitInfo.Buffer commandBufferInfos = VkCommandBufferSubmitInfo.calloc(1, stack);
             commandBufferInfos.get(0)
                     .sType$Default()
-                    .commandBuffer(commandBuffers.get(imageIndex))
+                    .commandBuffer(commandBuffer)
                     .deviceMask(0);
 
             // Signal presentation readiness and GPU completion
