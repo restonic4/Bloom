@@ -59,7 +59,6 @@ public final class VulkanCommandBufferRecorder {
                     .float32(3, 1.00f);
 
             VkRenderingAttachmentInfo.Buffer colorAttachment = VkRenderingAttachmentInfo.calloc(1, stack);
-
             colorAttachment.get(0)
                     .sType$Default()
                     .imageView(imageView)
