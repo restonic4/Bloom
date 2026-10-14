@@ -48,17 +48,21 @@ public class VulkanDebug {
         return buffer.rewind();
     }
 
-    static VkDebugUtilsMessengerCreateInfoEXT createMessengerCreateInfo(MemoryStack stack) {
+    static VkDebugUtilsMessengerCallbackEXT createCallback() {
+        return VkDebugUtilsMessengerCallbackEXT.create(VulkanDebug::debugCallback);
+    }
+
+    static VkDebugUtilsMessengerCreateInfoEXT createMessengerCreateInfo(MemoryStack stack, VkDebugUtilsMessengerCallbackEXT callback) {
         VkDebugUtilsMessengerCreateInfoEXT createInfo = VkDebugUtilsMessengerCreateInfoEXT.calloc(stack);
         createInfo.sType$Default();
         createInfo.messageSeverity(VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT);
         createInfo.messageType(VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT);
-        createInfo.pfnUserCallback(VulkanDebug::debugCallback);
+        createInfo.pfnUserCallback(callback);
         return createInfo;
     }
 
-    public static long createMessenger(VkInstance rawVkInstance, MemoryStack stack) {
-        VkDebugUtilsMessengerCreateInfoEXT createInfo = createMessengerCreateInfo(stack);
+    public static long createMessenger(VkInstance rawVkInstance, MemoryStack stack, VkDebugUtilsMessengerCallbackEXT callback) {
+        VkDebugUtilsMessengerCreateInfoEXT createInfo = createMessengerCreateInfo(stack, callback);
 
         LongBuffer pDebugMessenger = stack.longs(VK_NULL_HANDLE);
 

@@ -16,10 +16,12 @@ import static org.lwjgl.vulkan.VK14.*;
 public class VulkanInstance implements Disposable {
     private final VkInstance vkInstance;
     private final long debugMessenger;
+    private final VkDebugUtilsMessengerCallbackEXT debugCallback;
 
-    private VulkanInstance(VkInstance vkInstance, long debugMessenger) {
+    private VulkanInstance(VkInstance vkInstance, long debugMessenger, VkDebugUtilsMessengerCallbackEXT debugCallback) {
         this.vkInstance = vkInstance;
         this.debugMessenger = debugMessenger;
+        this.debugCallback = debugCallback;
     }
 
     public static VulkanInstance create(String engineName, Version engineVersion, String appName, Version appVersion, boolean enableValidationLayers) {
@@ -56,25 +58,31 @@ public class VulkanInstance implements Disposable {
                     .pApplicationInfo(appInfo)
                     .ppEnabledExtensionNames(requiredExtensions);
 
-            if (enableValidationLayers) {
-                createInfo.ppEnabledLayerNames(VulkanDebug.validationLayersAsPointerBuffer(stack));
-                VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = VulkanDebug.createMessengerCreateInfo(stack);
-                createInfo.pNext(debugCreateInfo.address());
+            VkDebugUtilsMessengerCallbackEXT debugCallback = enableValidationLayers ? VulkanDebug.createCallback() : null;
+            try {
+                if (enableValidationLayers) {
+                    createInfo.ppEnabledLayerNames(VulkanDebug.validationLayersAsPointerBuffer(stack));
+                    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = VulkanDebug.createMessengerCreateInfo(stack, debugCallback);
+                    createInfo.pNext(debugCreateInfo.address());
+                }
+
+                PointerBuffer pInstance = stack.mallocPointer(1);
+
+                result = vkCreateInstance(createInfo, null, pInstance);
+                if (result != VK_SUCCESS) throw new IllegalStateException("Failed to create Vulkan instance: " + result);
+
+                VkInstance rawVkInstance = new VkInstance(pInstance.get(0), createInfo);
+
+                long debugMessenger = VK_NULL_HANDLE;
+                if (enableValidationLayers) {
+                    debugMessenger = VulkanDebug.createMessenger(rawVkInstance, stack, debugCallback);
+                }
+
+                return new VulkanInstance(rawVkInstance, debugMessenger, debugCallback);
+            } catch (RuntimeException e) {
+                if (debugCallback != null) debugCallback.free();
+                throw e;
             }
-
-            PointerBuffer pInstance = stack.mallocPointer(1);
-
-            result = vkCreateInstance(createInfo, null, pInstance);
-            if (result != VK_SUCCESS) throw new IllegalStateException("Failed to create Vulkan instance: " + result);
-
-            VkInstance rawVkInstance = new VkInstance(pInstance.get(0), createInfo);
-
-            long debugMessenger = VK_NULL_HANDLE;
-            if (enableValidationLayers) {
-                debugMessenger = VulkanDebug.createMessenger(rawVkInstance, stack);
-            }
-
-            return new VulkanInstance(rawVkInstance, debugMessenger);
         }
     }
 
@@ -96,6 +104,7 @@ public class VulkanInstance implements Disposable {
     public void dispose() {
         VulkanDebug.destroyMessenger(vkInstance, debugMessenger);
         vkDestroyInstance(vkInstance, null);
+        if (debugCallback != null) debugCallback.free();
     }
 
     public VkInstance getInstance() { return vkInstance; }

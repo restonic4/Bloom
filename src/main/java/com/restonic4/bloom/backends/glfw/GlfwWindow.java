@@ -206,6 +206,7 @@ public class GlfwWindow extends Window {
         if (maximizeCallback != null) maximizeCallback.free();
         if (refreshCallback != null) refreshCallback.free();
 
+        Callbacks.glfwFreeCallbacks(handle);
         glfwDestroyWindow(this.handle);
         glfwTerminate();
 
