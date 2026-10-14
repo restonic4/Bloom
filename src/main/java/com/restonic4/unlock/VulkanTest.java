@@ -75,7 +75,7 @@ public class VulkanTest {
         VulkanShaderStage vertexStage = new VulkanShaderStage(vertexShader, VK_SHADER_STAGE_VERTEX_BIT);
         VulkanShaderStage fragmentStage = new VulkanShaderStage(fragmentShader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice);
+        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES);
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChain.getImageFormat(), vertexStage, fragmentStage);
 
         VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
@@ -188,13 +188,23 @@ public class VulkanTest {
 
             VkCommandBuffer commandBuffer = commandBuffers.get(frameIndex);
 
+            // A colour that changes over time: proves the commands are re-recorded every frame
+            float time = (float) glfwGetTime();
+            float[] color = {
+                    0.5f + 0.5f * (float) Math.sin(time),
+                    0.5f + 0.5f * (float) Math.sin(time + 2.0f),
+                    0.5f + 0.5f * (float) Math.sin(time + 4.0f),
+                    1.0f
+            };
+
             VulkanCommandBufferRecorder.record(
                     commandBuffer,
                     swapChainImages[imageIndex],
                     imageViews.get(imageIndex).getHandle(),
                     swapChain.getImageWidth(),
                     swapChain.getImageHeight(),
-                    graphicsPipeline
+                    graphicsPipeline,
+                    color
             );
 
             // Prepare the semaphore and timeline signal values

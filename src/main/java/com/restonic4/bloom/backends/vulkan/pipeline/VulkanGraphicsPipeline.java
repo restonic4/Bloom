@@ -187,6 +187,7 @@ public final class VulkanGraphicsPipeline implements Disposable {
     }
 
     public long getHandle() { return handle; }
+    public VulkanPipelineLayout getLayout() { return layout; }
 
     @Override
     public void dispose() {

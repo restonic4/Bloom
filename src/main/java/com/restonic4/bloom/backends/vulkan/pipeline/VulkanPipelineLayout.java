@@ -5,6 +5,7 @@ import com.restonic4.bloom.core.Disposable;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkDevice;
 import org.lwjgl.vulkan.VkPipelineLayoutCreateInfo;
+import org.lwjgl.vulkan.VkPushConstantRange;
 
 import java.nio.LongBuffer;
 
@@ -19,11 +20,25 @@ public final class VulkanPipelineLayout implements Disposable {
         this.handle = handle;
     }
 
-    public static VulkanPipelineLayout create(VulkanLogicalDevice logicalDevice) {
+    /**
+     * @param pushConstantStages shader stages that read the push constants (VK_SHADER_STAGE_*)
+     * @param pushConstantSize size in bytes of the push constant block, 0 for none
+     */
+    public static VulkanPipelineLayout create(VulkanLogicalDevice logicalDevice, int pushConstantStages, int pushConstantSize) {
         VkDevice device = logicalDevice.getHandle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkPipelineLayoutCreateInfo createInfo = VkPipelineLayoutCreateInfo.calloc(stack).sType$Default();
+
+            if (pushConstantSize > 0) {
+                VkPushConstantRange.Buffer pushConstantRanges = VkPushConstantRange.calloc(1, stack);
+                pushConstantRanges.get(0)
+                        .stageFlags(pushConstantStages)
+                        .offset(0)
+                        .size(pushConstantSize);
+
+                createInfo.pPushConstantRanges(pushConstantRanges);
+            }
 
             LongBuffer pPipelineLayout = stack.mallocLong(1);
 

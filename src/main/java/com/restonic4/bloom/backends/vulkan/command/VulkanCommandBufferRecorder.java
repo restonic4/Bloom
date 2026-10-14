@@ -17,10 +17,15 @@ public final class VulkanCommandBufferRecorder {
             long imageView,
             int width,
             int height,
-            VulkanGraphicsPipeline pipeline
+            VulkanGraphicsPipeline pipeline,
+            float[] color
     ) {
         if (width <= 0 || height <= 0) {
             throw new IllegalArgumentException("Rendering extent must be positive");
+        }
+
+        if (color.length != 4) {
+            throw new IllegalArgumentException("Color must be RGBA");
         }
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -107,6 +112,10 @@ public final class VulkanCommandBufferRecorder {
             scissor.get(0).extent().set(width, height);
 
             vkCmdSetScissor(commandBuffer, 0, scissor);
+
+            // Send the colour to the fragment shader through a push constant
+
+            vkCmdPushConstants(commandBuffer, pipeline.getLayout().getHandle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, color);
 
             // Draw three hardcoded vertices
 
