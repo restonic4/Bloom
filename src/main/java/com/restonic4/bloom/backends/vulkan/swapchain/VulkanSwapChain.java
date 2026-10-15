@@ -18,7 +18,6 @@ import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
 import static org.lwjgl.vulkan.VK10.*;
 
-// TODO: The swap chain needs to be recreated on each window resize
 public class VulkanSwapChain implements Disposable {
     private final VkDevice device;
     private final long handle;

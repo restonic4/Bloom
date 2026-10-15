@@ -1,6 +1,8 @@
 package com.restonic4.unlock;
 
+import com.restonic4.bloom.api.events.WindowEvents;
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
+import com.restonic4.bloom.events.EventResult;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
@@ -13,6 +15,7 @@ import com.restonic4.bloom.backends.vulkan.shader.VulkanShader;
 import com.restonic4.bloom.backends.vulkan.shader.VulkanShaderStage;
 import com.restonic4.bloom.backends.vulkan.surface.VulkanSurface;
 import com.restonic4.bloom.backends.vulkan.swapchain.VulkanSwapChain;
+import com.restonic4.bloom.backends.vulkan.swapchain.VulkanSwapChainTarget;
 import com.restonic4.bloom.backends.vulkan.swapchain.VulkanSwapChainImageViews;
 import com.restonic4.bloom.backends.vulkan.sync.VulkanFrameSync;
 import com.restonic4.bloom.core.graphics.ShaderSource;
@@ -35,6 +38,9 @@ public class VulkanTest {
     private static final boolean ENABLE_VALIDATION_LAYERS = Configuration.DEBUG.get(true);
     private static final int FRAMES_IN_FLIGHT = 2;
 
+    // Set by the window resize event, read by the render loop.
+    private static boolean resizeRequested = false;
+
     public static void init() {
         GlfwWindow window;
         if ("x11".equalsIgnoreCase(System.getProperty("engine.windowing", ""))) {
@@ -53,8 +59,7 @@ public class VulkanTest {
         VulkanPhysicalDevice physicalDevice = VulkanPhysicalDevice.pickBestDevice(vkInstance.getInstance(), surface.getHandle());
         VulkanLogicalDevice logicalDevice = VulkanLogicalDevice.create(physicalDevice, surface.getHandle());
 
-        VulkanSwapChain swapChain = VulkanSwapChain.create(physicalDevice, logicalDevice, surface.getHandle(), window.getHandle());
-        VulkanSwapChainImageViews imageViews = VulkanSwapChainImageViews.create(logicalDevice, swapChain);
+        VulkanSwapChainTarget swapChainTarget = VulkanSwapChainTarget.create(physicalDevice, logicalDevice, surface.getHandle(), window.getHandle());
 
         VulkanGlslCompiler compiler = new VulkanGlslCompiler();
 
@@ -76,27 +81,34 @@ public class VulkanTest {
         VulkanShaderStage fragmentStage = new VulkanShaderStage(fragmentShader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES);
-        VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChain.getImageFormat(), vertexStage, fragmentStage);
+        VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), vertexStage, fragmentStage);
 
         VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
         List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
 
-        long[] swapChainImages = swapChain.getImageHandles();
+        VulkanFrameSync frameSync = VulkanFrameSync.create(logicalDevice, swapChainTarget.getSwapChain().getImageHandles().length, FRAMES_IN_FLIGHT);
 
-        if (swapChainImages.length != imageViews.size()) {
-            throw new IllegalStateException("Swapchain image and view counts differ");
-        }
-
-        VulkanFrameSync frameSync = VulkanFrameSync.create(logicalDevice, swapChain.getImageHandles().length, FRAMES_IN_FLIGHT);
+        WindowEvents.RESIZED.register((w, oldWidth, oldHeight, newWidth, newHeight) -> {
+            resizeRequested = true;
+            return EventResult.CONTINUE;
+        });
 
         int frameIndex = 0;
 
         while (!window.shouldClose()) {
             glfwPollEvents();
 
-            if (!drawFrame(logicalDevice, swapChain, swapChainImages, imageViews, graphicsPipeline, commandBuffers, frameSync, frameIndex)) {
-                System.out.println("Swapchain recreation is required; stopping renderer.");
-                window.setShouldClose(true);
+            if (resizeRequested) {
+                waitForNonZeroFramebuffer(window);
+                if (window.shouldClose()) break;
+
+                swapChainTarget.recreate(window.getHandle());
+                frameSync.recreateRenderFinished(swapChainTarget.getSwapChain().getImageHandles().length);
+                resizeRequested = false;
+            }
+
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, commandBuffers, frameSync, frameIndex)) {
+                resizeRequested = true;
             }
 
             frameIndex = (frameIndex + 1) % FRAMES_IN_FLIGHT;
@@ -116,8 +128,7 @@ public class VulkanTest {
         commandPool.dispose();
         frameSync.dispose();
 
-        imageViews.dispose();
-        swapChain.dispose();
+        swapChainTarget.dispose();
 
         logicalDevice.dispose();
         surface.dispose();
@@ -125,6 +136,19 @@ public class VulkanTest {
 
         window.dispose();
         glfwTerminate();
+    }
+
+    private static void waitForNonZeroFramebuffer(GlfwWindow window) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer width = stack.ints(0);
+            IntBuffer height = stack.ints(0);
+
+            glfwGetFramebufferSize(window.getHandle(), width, height);
+            while (!window.shouldClose() && (width.get(0) == 0 || height.get(0) == 0)) {
+                glfwWaitEvents();
+                glfwGetFramebufferSize(window.getHandle(), width, height);
+            }
+        }
     }
 
     /**
@@ -143,15 +167,17 @@ public class VulkanTest {
      */
     private static boolean drawFrame(
             VulkanLogicalDevice logicalDevice,
-            VulkanSwapChain swapChain,
-            long[] swapChainImages,
-            VulkanSwapChainImageViews imageViews,
+            VulkanSwapChainTarget swapChainTarget,
             VulkanGraphicsPipeline graphicsPipeline,
             List<VkCommandBuffer> commandBuffers,
             VulkanFrameSync frameSync,
             int frameIndex
     ) {
         frameSync.waitForFrameSlot(FRAMES_IN_FLIGHT);
+
+        VulkanSwapChain swapChain = swapChainTarget.getSwapChain();
+        long[] swapChainImages = swapChain.getImageHandles();
+        VulkanSwapChainImageViews imageViews = swapChainTarget.getImageViews();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
@@ -285,6 +311,4 @@ public class VulkanTest {
             return true;
         }
     }
-
-    // Conclusion: I am completely lost at this point
 }
