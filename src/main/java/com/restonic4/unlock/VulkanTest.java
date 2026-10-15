@@ -102,7 +102,11 @@ public class VulkanTest {
                 waitForNonZeroFramebuffer(window);
                 if (window.shouldClose()) break;
 
-                swapChainTarget.recreate(window.getHandle());
+                boolean formatChanged = swapChainTarget.recreate(window.getHandle());
+                if (formatChanged) {
+                    graphicsPipeline.dispose();
+                    graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), vertexStage, fragmentStage);
+                }
                 frameSync.recreateRenderFinished(swapChainTarget.getSwapChain().getImageHandles().length);
                 resizeRequested = false;
             }

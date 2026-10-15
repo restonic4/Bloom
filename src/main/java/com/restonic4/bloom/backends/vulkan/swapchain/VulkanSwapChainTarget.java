@@ -42,7 +42,8 @@ public final class VulkanSwapChainTarget implements Disposable {
         }
     }
 
-    public void recreate(long window) {
+    /** @return whether the image format changed, which invalidates pipelines built for the old one */
+    public boolean recreate(long window) {
         int idleResult = vkDeviceWaitIdle(logicalDevice.getHandle());
         if (idleResult != VK_SUCCESS) {
             throw new IllegalStateException("Failed to wait for device idle: " + idleResult);
@@ -58,11 +59,15 @@ public final class VulkanSwapChainTarget implements Disposable {
             throw e;
         }
 
+        boolean formatChanged = newSwapChain.getImageFormat() != swapChain.getImageFormat();
+
         imageViews.dispose();
         swapChain.dispose();
 
         swapChain = newSwapChain;
         imageViews = newImageViews;
+
+        return formatChanged;
     }
 
     public VulkanSwapChain getSwapChain() { return swapChain; }
