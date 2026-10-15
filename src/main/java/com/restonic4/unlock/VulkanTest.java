@@ -99,7 +99,7 @@ public class VulkanTest {
             glfwPollEvents();
 
             if (resizeRequested) {
-                waitForNonZeroFramebuffer(window);
+                window.waitForNonZeroFramebuffer();
                 if (window.shouldClose()) break;
 
                 boolean formatChanged = swapChainTarget.recreate(window.getHandle());
@@ -140,19 +140,6 @@ public class VulkanTest {
 
         window.dispose();
         glfwTerminate();
-    }
-
-    private static void waitForNonZeroFramebuffer(GlfwWindow window) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            IntBuffer width = stack.ints(0);
-            IntBuffer height = stack.ints(0);
-
-            glfwGetFramebufferSize(window.getHandle(), width, height);
-            while (!window.shouldClose() && (width.get(0) == 0 || height.get(0) == 0)) {
-                glfwWaitEvents();
-                glfwGetFramebufferSize(window.getHandle(), width, height);
-            }
-        }
     }
 
     /**

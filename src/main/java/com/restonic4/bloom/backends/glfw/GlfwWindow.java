@@ -8,7 +8,10 @@ import com.restonic4.bloom.events.EventResult;
 import com.restonic4.unlock.Unlock;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
+
+import java.nio.IntBuffer;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
@@ -192,6 +195,19 @@ public class GlfwWindow extends Window {
     @Deprecated(forRemoval = true) // OpenGL only
     public void setSwapInterval(int interval) {
         glfwSwapInterval(interval);
+    }
+
+    public void waitForNonZeroFramebuffer() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer width = stack.ints(0);
+            IntBuffer height = stack.ints(0);
+
+            glfwGetFramebufferSize(this.handle, width, height);
+            while (!shouldClose() && (width.get(0) == 0 || height.get(0) == 0)) {
+                glfwWaitEvents();
+                glfwGetFramebufferSize(this.handle, width, height);
+            }
+        }
     }
 
     public long getHandle() { return this.handle; }
