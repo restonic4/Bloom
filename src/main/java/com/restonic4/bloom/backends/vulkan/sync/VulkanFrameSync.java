@@ -13,7 +13,7 @@ import static org.lwjgl.vulkan.VK12.*;
 public final class VulkanFrameSync implements Disposable {
     private final VkDevice device;
     private final long[] imageAvailableSemaphores; // One per frame in flight
-    private final long[] renderFinishedSemaphores; // One per swapchain image
+    private long[] renderFinishedSemaphores; // One per swapchain image
     private final long timelineSemaphore;
 
     private long lastSubmittedTimelineValue;
@@ -70,6 +70,32 @@ public final class VulkanFrameSync implements Disposable {
 
             throw e;
         }
+    }
+
+    public void recreateRenderFinished(int swapchainImageCount) {
+        if (swapchainImageCount <= 0) {
+            throw new IllegalArgumentException("Swapchain image count must be positive");
+        }
+
+        long[] created = new long[swapchainImageCount];
+
+        try {
+            for (int i = 0; i < created.length; i++) {
+                created[i] = createBinarySemaphore(device);
+            }
+        } catch (RuntimeException e) {
+            for (long semaphore : created) {
+                destroyIfCreated(device, semaphore);
+            }
+
+            throw e;
+        }
+
+        for (long semaphore : renderFinishedSemaphores) {
+            vkDestroySemaphore(device, semaphore, null);
+        }
+
+        renderFinishedSemaphores = created;
     }
 
     private static long createBinarySemaphore(VkDevice device) {

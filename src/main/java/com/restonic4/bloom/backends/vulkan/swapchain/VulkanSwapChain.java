@@ -43,6 +43,10 @@ public class VulkanSwapChain implements Disposable {
     }
 
     public static VulkanSwapChain create(VulkanPhysicalDevice physicalDevice, VulkanLogicalDevice logicalDevice, long surface, long window) {
+        return create(physicalDevice, logicalDevice, surface, window, VK_NULL_HANDLE);
+    }
+
+    public static VulkanSwapChain create(VulkanPhysicalDevice physicalDevice, VulkanLogicalDevice logicalDevice, long surface, long window, long oldSwapChain) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             SwapChainSupportDetails support = SwapChainSupportDetails.querySwapChainSupport(physicalDevice.getHandle(), surface);
 
@@ -73,7 +77,7 @@ public class VulkanSwapChain implements Disposable {
                     .compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
                     .presentMode(presentMode)
                     .clipped(true)
-                    .oldSwapchain(VK_NULL_HANDLE);
+                    .oldSwapchain(oldSwapChain);
 
             if (queueFamilies.graphics() != queueFamilies.present()) {
                 createInfo.imageSharingMode(VK_SHARING_MODE_CONCURRENT)
