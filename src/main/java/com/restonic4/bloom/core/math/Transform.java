@@ -33,7 +33,7 @@ public class Transform {
             this.x = x;
             this.y = y;
             this.z = z;
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -48,7 +48,7 @@ public class Transform {
             x += dx;
             y += dy;
             z += dz;
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -65,7 +65,7 @@ public class Transform {
             scaleX = x;
             scaleY = y;
             scaleZ = z;
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -80,7 +80,7 @@ public class Transform {
             scaleX *= factor;
             scaleY *= factor;
             scaleZ *= factor;
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -91,7 +91,7 @@ public class Transform {
             scaleX *= x;
             scaleY *= y;
             scaleZ *= z;
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -102,7 +102,7 @@ public class Transform {
     public Transform setRotation(Quaternionfc quaternion) {
         if (!rotation.equals(quaternion)) {
             rotation.set(quaternion);
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -111,7 +111,7 @@ public class Transform {
     public Transform setRotation(float x, float y, float z, float w) {
         if (rotation.x() != x || rotation.y() != y || rotation.z() != z || rotation.w() != w) {
             rotation.set(x, y, z, w);
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -119,20 +119,20 @@ public class Transform {
 
     public Transform setRotationXYZ(float angleX, float angleY, float angleZ) {
         rotation.rotationXYZ(angleX, angleY, angleZ);
-        dirty = true;
+        markDirty();
         return this;
     }
 
     public Transform setRotationAxis(float angle, float axisX, float axisY, float axisZ) {
         rotation.rotationAxis(angle, axisX, axisY, axisZ);
-        dirty = true;
+        markDirty();
         return this;
     }
 
     public Transform rotateX(float angle) {
         if (angle != 0.0f) {
             rotation.rotateX(angle);
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -141,7 +141,7 @@ public class Transform {
     public Transform rotateY(float angle) {
         if (angle != 0.0f) {
             rotation.rotateY(angle);
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -150,7 +150,7 @@ public class Transform {
     public Transform rotateZ(float angle) {
         if (angle != 0.0f) {
             rotation.rotateZ(angle);
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -159,7 +159,7 @@ public class Transform {
     public Transform rotateXYZ(float angleX, float angleY, float angleZ) {
         if (angleX != 0.0f || angleY != 0.0f || angleZ != 0.0f) {
             rotation.rotateXYZ(angleX, angleY, angleZ);
-            dirty = true;
+            markDirty();
         }
 
         return this;
@@ -167,7 +167,7 @@ public class Transform {
 
     public Transform rotate(Quaternionfc delta) {
         rotation.mul(delta);
-        dirty = true;
+        markDirty();
         return this;
     }
 
@@ -186,7 +186,7 @@ public class Transform {
             scaleY = 1.0f;
             scaleZ = 1.0f;
             rotation.identity();
-            dirty = true;
+            markDirty();
         }
 
         return this;
