@@ -1,5 +1,6 @@
 package com.restonic4.bloom.backends.vulkan.command;
 
+import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -18,6 +19,9 @@ public final class VulkanCommandBufferRecorder {
             int width,
             int height,
             VulkanGraphicsPipeline pipeline,
+            VulkanBuffer vertexBuffer,
+            VulkanBuffer indexBuffer,
+            int indexCount,
             float[] color
     ) {
         if (width <= 0 || height <= 0) {
@@ -117,9 +121,17 @@ public final class VulkanCommandBufferRecorder {
 
             vkCmdPushConstants(commandBuffer, pipeline.getLayout().getHandle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, color);
 
-            // Draw three hardcoded vertices
+            // Bind the vertex buffer to binding slot 0 of the pipeline's vertex input
 
-            vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+            vkCmdBindVertexBuffers(commandBuffer, 0, stack.longs(vertexBuffer.getHandle()), stack.longs(0L));
+
+            // Bind the index buffer: each index is a 32-bit unsigned int, reading starts at byte 0
+
+            vkCmdBindIndexBuffer(commandBuffer, indexBuffer.getHandle(), 0, VK_INDEX_TYPE_UINT32);
+
+            // Draw the triangles described by the indices
+
+            vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
 
             // End dynamic rendering
 

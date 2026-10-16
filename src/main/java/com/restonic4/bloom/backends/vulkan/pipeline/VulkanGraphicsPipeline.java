@@ -49,10 +49,23 @@ public final class VulkanGraphicsPipeline implements Disposable {
                 stages.get(i).set(shaderStages[i].createInfo(stack));
             }
 
-            // Vertex input: Hardcoded triangle
+            // Vertex input: one binding of tightly packed vec2 positions
+
+            VkVertexInputBindingDescription.Buffer binding = VkVertexInputBindingDescription.calloc(1, stack)
+                    .binding(0)
+                    .stride(2 * Float.BYTES)
+                    .inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
+
+            VkVertexInputAttributeDescription.Buffer attributes = VkVertexInputAttributeDescription.calloc(1, stack)
+                    .binding(0)
+                    .location(0)
+                    .format(VK_FORMAT_R32G32_SFLOAT)
+                    .offset(0);
 
             VkPipelineVertexInputStateCreateInfo vertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack)
-                    .sType$Default();
+                    .sType$Default()
+                    .pVertexBindingDescriptions(binding)
+                    .pVertexAttributeDescriptions(attributes);
 
             // Input assembly
 

@@ -3,6 +3,7 @@ package com.restonic4.unlock;
 import com.restonic4.bloom.api.events.WindowEvents;
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
 import com.restonic4.bloom.events.EventResult;
+import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
@@ -26,6 +27,7 @@ import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
+import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.List;
 
@@ -83,6 +85,31 @@ public class VulkanTest {
         VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES);
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), vertexStage, fragmentStage);
 
+        float[] quadVertices = {
+                -0.5f,  0.5f,
+                 0.5f,  0.5f,
+                 0.5f, -0.5f,
+                -0.5f, -0.5f
+        };
+
+        int[] quadIndices = {
+                0, 1, 2,
+                2, 3, 0
+        };
+
+        VulkanBuffer vertexBuffer;
+        VulkanBuffer indexBuffer;
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            ByteBuffer vertexData = stack.malloc(quadVertices.length * Float.BYTES);
+            vertexData.asFloatBuffer().put(quadVertices);
+            vertexBuffer = VulkanBuffer.createHostVisible(logicalDevice, vertexData, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+            ByteBuffer indexData = stack.malloc(quadIndices.length * Integer.BYTES);
+            indexData.asIntBuffer().put(quadIndices);
+            indexBuffer = VulkanBuffer.createHostVisible(logicalDevice, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        }
+
         VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
         List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
 
@@ -111,7 +138,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, vertexBuffer, indexBuffer, quadIndices.length, commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -122,6 +149,9 @@ public class VulkanTest {
         if (idleResult != VK_SUCCESS) {
             throw new IllegalStateException("Failed to wait for device idle: " + idleResult);
         }
+
+        indexBuffer.dispose();
+        vertexBuffer.dispose();
 
         graphicsPipeline.dispose();
         pipelineLayout.dispose();
@@ -160,6 +190,9 @@ public class VulkanTest {
             VulkanLogicalDevice logicalDevice,
             VulkanSwapChainTarget swapChainTarget,
             VulkanGraphicsPipeline graphicsPipeline,
+            VulkanBuffer vertexBuffer,
+            VulkanBuffer indexBuffer,
+            int indexCount,
             List<VkCommandBuffer> commandBuffers,
             VulkanFrameSync frameSync,
             int frameIndex
@@ -221,6 +254,9 @@ public class VulkanTest {
                     swapChain.getImageWidth(),
                     swapChain.getImageHeight(),
                     graphicsPipeline,
+                    vertexBuffer,
+                    indexBuffer,
+                    indexCount,
                     color
             );
 
