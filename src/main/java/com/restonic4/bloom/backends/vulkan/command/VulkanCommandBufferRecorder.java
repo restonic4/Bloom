@@ -2,8 +2,12 @@ package com.restonic4.bloom.backends.vulkan.command;
 
 import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
+import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
+import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
+
+import java.nio.FloatBuffer;
 
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -22,6 +26,7 @@ public final class VulkanCommandBufferRecorder {
             VulkanBuffer vertexBuffer,
             VulkanBuffer indexBuffer,
             int indexCount,
+            Matrix4fc viewProjection,
             float[] color
     ) {
         if (width <= 0 || height <= 0) {
@@ -117,9 +122,14 @@ public final class VulkanCommandBufferRecorder {
 
             vkCmdSetScissor(commandBuffer, 0, scissor);
 
-            // Send the colour to the fragment shader through a push constant
+            // Push constants: viewProjection (16 floats) then colour (4 floats), same order as the shader block
 
-            vkCmdPushConstants(commandBuffer, pipeline.getLayout().getHandle(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, color);
+            FloatBuffer pushData = stack.mallocFloat(20);
+            viewProjection.get(0, pushData);
+            pushData.put(16, color);
+
+            VulkanPipelineLayout layout = pipeline.getLayout();
+            vkCmdPushConstants(commandBuffer, layout.getHandle(), layout.getPushConstantStages(), 0, pushData);
 
             // Bind the vertex buffer to binding slot 0 of the pipeline's vertex input
 

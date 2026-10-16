@@ -4,6 +4,7 @@ import com.restonic4.bloom.api.events.WindowEvents;
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
 import com.restonic4.bloom.events.EventResult;
 import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
+import com.restonic4.bloom.backends.vulkan.camera.VulkanClipSpace;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
@@ -23,6 +24,8 @@ import com.restonic4.bloom.core.graphics.ShaderSource;
 import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
 import com.restonic4.bloom.core.platform.WindowSystem;
+import com.restonic4.bloom.core.scene.Camera;
+import org.joml.Matrix4f;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -42,6 +45,8 @@ public class VulkanTest {
 
     // Set by the window resize event, read by the render loop.
     private static boolean resizeRequested = false;
+
+    private static final Matrix4f viewProjection = new Matrix4f();
 
     public static void init() {
         GlfwWindow window;
@@ -82,14 +87,14 @@ public class VulkanTest {
         VulkanShaderStage vertexStage = new VulkanShaderStage(vertexShader, VK_SHADER_STAGE_VERTEX_BIT);
         VulkanShaderStage fragmentStage = new VulkanShaderStage(fragmentShader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES);
+        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 20 * Float.BYTES);
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), vertexStage, fragmentStage);
 
         float[] quadVertices = {
-                -0.5f,  0.5f,
-                 0.5f,  0.5f,
+                -0.5f, -0.5f,
                  0.5f, -0.5f,
-                -0.5f, -0.5f
+                 0.5f,  0.5f,
+                -0.5f,  0.5f
         };
 
         int[] quadIndices = {
@@ -109,6 +114,11 @@ public class VulkanTest {
             indexData.asIntBuffer().put(quadIndices);
             indexBuffer = VulkanBuffer.createHostVisible(logicalDevice, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         }
+
+        // TODO: viewProjection is multiplied on the CPU and pushed as one mat4 because 2 mat4 + the colour exceed the
+        //  guaranteed 128 B of push constants. Revisit when uniform buffers exist (not necessarily a defect).
+        Camera camera = new Camera();
+        camera.getTransform().setPosition(0.0f, 0.0f, 2.0f);
 
         VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
         List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
@@ -138,7 +148,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, vertexBuffer, indexBuffer, quadIndices.length, commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, vertexBuffer, indexBuffer, quadIndices.length, camera, commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -193,6 +203,7 @@ public class VulkanTest {
             VulkanBuffer vertexBuffer,
             VulkanBuffer indexBuffer,
             int indexCount,
+            Camera camera,
             List<VkCommandBuffer> commandBuffers,
             VulkanFrameSync frameSync,
             int frameIndex
@@ -247,6 +258,9 @@ public class VulkanTest {
                     1.0f
             };
 
+            float aspectRatio = (float) swapChain.getImageWidth() / swapChain.getImageHeight();
+            VulkanClipSpace.viewProjection(camera, aspectRatio, viewProjection);
+
             VulkanCommandBufferRecorder.record(
                     commandBuffer,
                     swapChainImages[imageIndex],
@@ -257,6 +271,7 @@ public class VulkanTest {
                     vertexBuffer,
                     indexBuffer,
                     indexCount,
+                    viewProjection,
                     color
             );
 

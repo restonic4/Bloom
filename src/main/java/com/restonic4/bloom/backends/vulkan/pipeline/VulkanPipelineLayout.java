@@ -14,10 +14,12 @@ import static org.lwjgl.vulkan.VK10.*;
 public final class VulkanPipelineLayout implements Disposable {
     private final VkDevice device;
     private final long handle;
+    private final int pushConstantStages;
 
-    private VulkanPipelineLayout(VkDevice device, long handle) {
+    private VulkanPipelineLayout(VkDevice device, long handle, int pushConstantStages) {
         this.device = device;
         this.handle = handle;
+        this.pushConstantStages = pushConstantStages;
     }
 
     /**
@@ -45,11 +47,12 @@ public final class VulkanPipelineLayout implements Disposable {
             int result = vkCreatePipelineLayout(device, createInfo, null, pPipelineLayout);
             if (result != VK_SUCCESS) throw new IllegalStateException("Failed to create pipeline layout: " + result);
 
-            return new VulkanPipelineLayout(device, pPipelineLayout.get(0));
+            return new VulkanPipelineLayout(device, pPipelineLayout.get(0), pushConstantStages);
         }
     }
 
     public long getHandle() { return handle; }
+    public int getPushConstantStages() { return pushConstantStages; }
 
     @Override
     public void dispose() {

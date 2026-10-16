@@ -2,8 +2,9 @@
 
 layout(location = 0) out vec4 outColor;
 
-// Small block of data written by the CPU into the command buffer (vkCmdPushConstants)
+// Written by the CPU into the command buffer (vkCmdPushConstants), same block as the vertex shader
 layout(push_constant) uniform PushConstants {
+    mat4 viewProj;
     vec4 color;
 } pushConstants;
 
