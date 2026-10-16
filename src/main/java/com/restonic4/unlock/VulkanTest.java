@@ -8,6 +8,7 @@ import com.restonic4.bloom.backends.vulkan.camera.VulkanClipSpace;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
+import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
 import com.restonic4.bloom.backends.vulkan.device.VulkanPhysicalDevice;
 import com.restonic4.bloom.backends.vulkan.instance.VulkanInstance;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
@@ -68,6 +69,12 @@ public class VulkanTest {
 
         VulkanSwapChainTarget swapChainTarget = VulkanSwapChainTarget.create(physicalDevice, logicalDevice, surface.getHandle(), window.getHandle());
 
+        VulkanDepthImage depthImage = VulkanDepthImage.create(
+                logicalDevice,
+                swapChainTarget.getSwapChain().getImageWidth(),
+                swapChainTarget.getSwapChain().getImageHeight()
+        );
+
         VulkanGlslCompiler compiler = new VulkanGlslCompiler();
 
         VulkanShader vertexShader = null;
@@ -88,18 +95,28 @@ public class VulkanTest {
         VulkanShaderStage fragmentStage = new VulkanShaderStage(fragmentShader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 20 * Float.BYTES);
-        VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), vertexStage, fragmentStage);
+        VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
 
+        // Two overlapping quads: the near one (z = 0) is drawn first, the far one (z = -1) second.
+        // Without a depth test the far one would cover part of the near one.
         float[] quadVertices = {
-                -0.5f, -0.5f,
-                 0.5f, -0.5f,
-                 0.5f,  0.5f,
-                -0.5f,  0.5f
+                -0.5f, -0.5f,  0.0f,
+                 0.5f, -0.5f,  0.0f,
+                 0.5f,  0.5f,  0.0f,
+                -0.5f,  0.5f,  0.0f,
+
+                -0.1f, -0.2f, -1.0f,
+                 0.9f, -0.2f, -1.0f,
+                 0.9f,  0.8f, -1.0f,
+                -0.1f,  0.8f, -1.0f
         };
 
         int[] quadIndices = {
                 0, 1, 2,
-                2, 3, 0
+                2, 3, 0,
+
+                4, 5, 6,
+                6, 7, 4
         };
 
         VulkanBuffer vertexBuffer;
@@ -140,15 +157,23 @@ public class VulkanTest {
                 if (window.shouldClose()) break;
 
                 boolean formatChanged = swapChainTarget.recreate(window.getHandle());
+
+                depthImage.dispose();
+                depthImage = VulkanDepthImage.create(
+                        logicalDevice,
+                        swapChainTarget.getSwapChain().getImageWidth(),
+                        swapChainTarget.getSwapChain().getImageHeight()
+                );
+
                 if (formatChanged) {
                     graphicsPipeline.dispose();
-                    graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), vertexStage, fragmentStage);
+                    graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
                 }
                 frameSync.recreateRenderFinished(swapChainTarget.getSwapChain().getImageHandles().length);
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, vertexBuffer, indexBuffer, quadIndices.length, camera, commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, vertexBuffer, indexBuffer, quadIndices.length, camera, commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -162,6 +187,7 @@ public class VulkanTest {
 
         indexBuffer.dispose();
         vertexBuffer.dispose();
+        depthImage.dispose();
 
         graphicsPipeline.dispose();
         pipelineLayout.dispose();
@@ -200,6 +226,7 @@ public class VulkanTest {
             VulkanLogicalDevice logicalDevice,
             VulkanSwapChainTarget swapChainTarget,
             VulkanGraphicsPipeline graphicsPipeline,
+            VulkanDepthImage depthImage,
             VulkanBuffer vertexBuffer,
             VulkanBuffer indexBuffer,
             int indexCount,
@@ -268,6 +295,7 @@ public class VulkanTest {
                     swapChain.getImageWidth(),
                     swapChain.getImageHeight(),
                     graphicsPipeline,
+                    depthImage,
                     vertexBuffer,
                     indexBuffer,
                     indexCount,

@@ -1,6 +1,7 @@
 package com.restonic4.bloom.backends.vulkan.buffer;
 
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
+import com.restonic4.bloom.backends.vulkan.memory.VulkanMemory;
 import com.restonic4.bloom.core.Disposable;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -61,7 +62,7 @@ public final class VulkanBuffer implements Disposable {
 
             int memoryTypeIndex;
             try {
-                memoryTypeIndex = findMemoryType(device.getPhysicalDevice(), requirements.memoryTypeBits(), memoryProperties, stack);
+                memoryTypeIndex = VulkanMemory.findMemoryType(device.getPhysicalDevice(), requirements.memoryTypeBits(), memoryProperties, stack);
             } catch (RuntimeException e) {
                 vkDestroyBuffer(device, buffer, null);
                 throw e;
@@ -111,22 +112,6 @@ public final class VulkanBuffer implements Disposable {
         }
 
         return buffer;
-    }
-
-    private static int findMemoryType(VkPhysicalDevice physicalDevice, int allowedTypeBits, int requiredProperties, MemoryStack stack) {
-        VkPhysicalDeviceMemoryProperties memoryProperties = VkPhysicalDeviceMemoryProperties.malloc(stack);
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, memoryProperties);
-
-        for (int i = 0; i < memoryProperties.memoryTypeCount(); i++) {
-            boolean allowedForBuffer = (allowedTypeBits & (1 << i)) != 0;
-            boolean hasProperties = (memoryProperties.memoryTypes(i).propertyFlags() & requiredProperties) == requiredProperties;
-
-            if (allowedForBuffer && hasProperties) {
-                return i;
-            }
-        }
-
-        throw new IllegalStateException("No memory type matches the buffer requirements and properties " + requiredProperties);
     }
 
     public void write(ByteBuffer data) {

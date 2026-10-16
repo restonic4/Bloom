@@ -1,6 +1,7 @@
 package com.restonic4.bloom.backends.vulkan.command;
 
 import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
+import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
 import org.joml.Matrix4fc;
@@ -14,6 +15,8 @@ import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK13.*;
 
 public final class VulkanCommandBufferRecorder {
+    private static final long DEPTH_TEST_STAGES = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+
     private VulkanCommandBufferRecorder() {}
 
     public static void record(
@@ -23,6 +26,7 @@ public final class VulkanCommandBufferRecorder {
             int width,
             int height,
             VulkanGraphicsPipeline pipeline,
+            VulkanDepthImage depthImage,
             VulkanBuffer vertexBuffer,
             VulkanBuffer indexBuffer,
             int indexCount,
@@ -54,12 +58,29 @@ public final class VulkanCommandBufferRecorder {
             transitionImage(
                     commandBuffer,
                     image,
+                    VK_IMAGE_ASPECT_COLOR_BIT,
                     VK_IMAGE_LAYOUT_UNDEFINED,
                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                     VK_ACCESS_2_NONE,
                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
                     VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                    stack
+            );
+
+            // Transition the depth image. The same image is shared by every frame in flight, so the source
+            // is a depth write (not NONE): the previous frame's depth work must finish before this frame's starts.
+
+            transitionImage(
+                    commandBuffer,
+                    depthImage.getImageHandle(),
+                    VK_IMAGE_ASPECT_DEPTH_BIT,
+                    VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                    DEPTH_TEST_STAGES,
+                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                    DEPTH_TEST_STAGES,
+                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                     stack
             );
 
@@ -81,6 +102,21 @@ public final class VulkanCommandBufferRecorder {
                     .storeOp(VK_ATTACHMENT_STORE_OP_STORE)
                     .clearValue(clearValue);
 
+            // Describe the depth attachment: cleared to 1.0 (the far plane), not needed after rendering
+
+            VkClearValue depthClearValue = VkClearValue.calloc(stack);
+            depthClearValue.depthStencil()
+                    .depth(1.0f)
+                    .stencil(0);
+
+            VkRenderingAttachmentInfo depthAttachment = VkRenderingAttachmentInfo.calloc(stack)
+                    .sType$Default()
+                    .imageView(depthImage.getViewHandle())
+                    .imageLayout(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+                    .loadOp(VK_ATTACHMENT_LOAD_OP_CLEAR)
+                    .storeOp(VK_ATTACHMENT_STORE_OP_DONT_CARE)
+                    .clearValue(depthClearValue);
+
             VkRect2D renderArea = VkRect2D.calloc(stack);
             renderArea.offset().set(0, 0);
             renderArea.extent().set(width, height);
@@ -89,7 +125,8 @@ public final class VulkanCommandBufferRecorder {
                     .sType$Default()
                     .renderArea(renderArea)
                     .layerCount(1)
-                    .pColorAttachments(colorAttachment);
+                    .pColorAttachments(colorAttachment)
+                    .pDepthAttachment(depthAttachment);
             VkRenderingInfo.ncolorAttachmentCount(renderingInfo.address(), 1);
 
             // Begin dynamic rendering.
@@ -152,6 +189,7 @@ public final class VulkanCommandBufferRecorder {
             transitionImage(
                     commandBuffer,
                     image,
+                    VK_IMAGE_ASPECT_COLOR_BIT,
                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                     VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -173,6 +211,7 @@ public final class VulkanCommandBufferRecorder {
     private static void transitionImage(
             VkCommandBuffer commandBuffer,
             long image,
+            int aspectMask,
             int oldLayout,
             int newLayout,
             long srcStage,
@@ -184,7 +223,7 @@ public final class VulkanCommandBufferRecorder {
 
         VkImageSubresourceRange.Buffer subresourceRange = VkImageSubresourceRange.calloc(1, stack);
         subresourceRange.get(0)
-                .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+                .aspectMask(aspectMask)
                 .baseMipLevel(0)
                 .levelCount(1)
                 .baseArrayLayer(0)

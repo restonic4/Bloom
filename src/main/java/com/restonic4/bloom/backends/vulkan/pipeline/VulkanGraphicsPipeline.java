@@ -26,6 +26,7 @@ public final class VulkanGraphicsPipeline implements Disposable {
             VulkanLogicalDevice logicalDevice,
             VulkanPipelineLayout layout,
             int colorFormat,
+            int depthFormat,
             VulkanShaderStage... shaderStages
     ) {
         Objects.requireNonNull(logicalDevice, "logicalDevice");
@@ -34,6 +35,10 @@ public final class VulkanGraphicsPipeline implements Disposable {
 
         if (colorFormat == VK_FORMAT_UNDEFINED) {
             throw new IllegalArgumentException("Color format must be defined");
+        }
+
+        if (depthFormat == VK_FORMAT_UNDEFINED) {
+            throw new IllegalArgumentException("Depth format must be defined");
         }
 
         validateShaderStages(shaderStages);
@@ -49,17 +54,17 @@ public final class VulkanGraphicsPipeline implements Disposable {
                 stages.get(i).set(shaderStages[i].createInfo(stack));
             }
 
-            // Vertex input: one binding of tightly packed vec2 positions
+            // Vertex input: one binding of tightly packed vec3 positions
 
             VkVertexInputBindingDescription.Buffer binding = VkVertexInputBindingDescription.calloc(1, stack)
                     .binding(0)
-                    .stride(2 * Float.BYTES)
+                    .stride(3 * Float.BYTES)
                     .inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
 
             VkVertexInputAttributeDescription.Buffer attributes = VkVertexInputAttributeDescription.calloc(1, stack)
                     .binding(0)
                     .location(0)
-                    .format(VK_FORMAT_R32G32_SFLOAT)
+                    .format(VK_FORMAT_R32G32B32_SFLOAT)
                     .offset(0);
 
             VkPipelineVertexInputStateCreateInfo vertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack)
@@ -100,6 +105,16 @@ public final class VulkanGraphicsPipeline implements Disposable {
                     .rasterizationSamples(VK_SAMPLE_COUNT_1_BIT)
                     .sampleShadingEnable(false);
 
+            // Depth: keep the fragment closest to the camera (smaller depth wins)
+
+            VkPipelineDepthStencilStateCreateInfo depthStencil = VkPipelineDepthStencilStateCreateInfo.calloc(stack)
+                    .sType$Default()
+                    .depthTestEnable(true)
+                    .depthWriteEnable(true)
+                    .depthCompareOp(VK_COMPARE_OP_LESS)
+                    .depthBoundsTestEnable(false)
+                    .stencilTestEnable(false);
+
             // Color blending: write RGBA, no blending
 
             VkPipelineColorBlendAttachmentState.Buffer colorAttachment = VkPipelineColorBlendAttachmentState.calloc(1, stack);
@@ -132,7 +147,7 @@ public final class VulkanGraphicsPipeline implements Disposable {
                     .sType$Default()
                     .colorAttachmentCount(1)
                     .pColorAttachmentFormats(stack.ints(colorFormat))
-                    .depthAttachmentFormat(VK_FORMAT_UNDEFINED)
+                    .depthAttachmentFormat(depthFormat)
                     .stencilAttachmentFormat(VK_FORMAT_UNDEFINED);
 
             // Graphics pipeline
@@ -149,6 +164,7 @@ public final class VulkanGraphicsPipeline implements Disposable {
                     .pViewportState(viewportState)
                     .pRasterizationState(rasterization)
                     .pMultisampleState(multisampling)
+                    .pDepthStencilState(depthStencil)
                     .pColorBlendState(colorBlending)
                     .pDynamicState(dynamicState)
                     .layout(layout.getHandle())
