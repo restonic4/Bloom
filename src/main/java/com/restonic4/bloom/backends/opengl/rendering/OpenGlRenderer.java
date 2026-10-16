@@ -1,8 +1,9 @@
-package com.restonic4.bloom.core.rendering;
+package com.restonic4.bloom.backends.opengl.rendering;
 
+import com.restonic4.bloom.backends.opengl.mesh.OpenGlMesh;
 import com.restonic4.bloom.backends.opengl.shader.OpenGlShaderProgram;
+import com.restonic4.bloom.core.rendering.RenderTarget;
 import com.restonic4.bloom.core.scene.Camera;
-import com.restonic4.bloom.core.scene.Mesh;
 import com.restonic4.bloom.core.scene.MeshInstance;
 import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
@@ -13,15 +14,15 @@ import java.util.List;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL31.glDrawElementsInstanced;
 
-public class Renderer {
+public class OpenGlRenderer {
     private OpenGlShaderProgram shader;
 
-    public Renderer() {
+    public OpenGlRenderer() {
         this.shader = OpenGlShaderProgram.fromResources("core.vsh", "core.fsh");;
     }
 
     // TODO: reuse float buffer
-    public void render(Camera mainCamera, RenderTarget renderTarget, Mesh mesh, List<MeshInstance> instances) {
+    public void render(Camera mainCamera, RenderTarget renderTarget, OpenGlMesh mesh, List<MeshInstance> instances) {
         shader.bind();
 
         float aspectRatio = renderTarget.getAspectRatio();

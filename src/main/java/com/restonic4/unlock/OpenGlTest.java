@@ -1,11 +1,11 @@
 package com.restonic4.unlock;
 
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
+import com.restonic4.bloom.backends.opengl.mesh.OpenGlMesh;
 import com.restonic4.bloom.core.math.Time;
 import com.restonic4.bloom.core.math.Transform;
-import com.restonic4.bloom.core.rendering.Renderer;
+import com.restonic4.bloom.backends.opengl.rendering.OpenGlRenderer;
 import com.restonic4.bloom.core.scene.Camera;
-import com.restonic4.bloom.core.scene.Mesh;
 import com.restonic4.bloom.core.scene.MeshInstance;
 
 import java.util.ArrayList;
@@ -18,17 +18,17 @@ public class OpenGlTest {
     public static void init() {
         GlfwWindow window = new GlfwWindow(500, 500);
 
-        List<Mesh> meshes = Mesh.load("Cube.glb");
-        Mesh mesh = meshes.get(0);
+        List<OpenGlMesh> meshes = OpenGlMesh.load("Cube.glb");
+        OpenGlMesh mesh = meshes.get(0);
         Camera camera = new Camera();
-        Renderer renderer = new Renderer();
+        OpenGlRenderer renderer = new OpenGlRenderer();
 
         List<MeshInstance> meshInstances = new ArrayList<>();
 
-        meshInstances.add(Unlock.createCube(mesh, 0, 0, -10));
-        meshInstances.add(Unlock.createCube(mesh, 5, 0, -10));
-        meshInstances.add(Unlock.createCube(mesh, -5, 0, -10));
-        meshInstances.add(Unlock.createCube(mesh, 0, 5, -10));
+        meshInstances.add(Unlock.createCube(mesh.getData(), 0, 0, -10));
+        meshInstances.add(Unlock.createCube(mesh.getData(), 5, 0, -10));
+        meshInstances.add(Unlock.createCube(mesh.getData(), -5, 0, -10));
+        meshInstances.add(Unlock.createCube(mesh.getData(), 0, 5, -10));
 
         Time time = new Time();
         float speed = 1;

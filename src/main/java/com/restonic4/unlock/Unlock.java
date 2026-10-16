@@ -3,7 +3,7 @@ package com.restonic4.unlock;
 import com.restonic4.bloom.core.graphics.GraphicsApi;
 import com.restonic4.bloom.core.math.Transform;
 import com.restonic4.bloom.core.platform.SystemDetails;
-import com.restonic4.bloom.core.scene.Mesh;
+import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
 
 public class Unlock {
@@ -21,7 +21,7 @@ public class Unlock {
         }
     }
 
-    public static MeshInstance createCube(Mesh mesh, int x, int y, int z) {
+    public static MeshInstance createCube(MeshData mesh, int x, int y, int z) {
         Transform transform = new Transform();
         transform.setPosition(x, y, z);
 
