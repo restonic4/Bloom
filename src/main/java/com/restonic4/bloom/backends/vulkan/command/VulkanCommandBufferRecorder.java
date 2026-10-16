@@ -30,6 +30,8 @@ public final class VulkanCommandBufferRecorder {
             VulkanBuffer vertexBuffer,
             VulkanBuffer indexBuffer,
             int indexCount,
+            VulkanBuffer instanceBuffer,
+            int instanceCount,
             Matrix4fc viewProjection,
             float[] color
     ) {
@@ -168,9 +170,14 @@ public final class VulkanCommandBufferRecorder {
             VulkanPipelineLayout layout = pipeline.getLayout();
             vkCmdPushConstants(commandBuffer, layout.getHandle(), layout.getPushConstantStages(), 0, pushData);
 
-            // Bind the vertex buffer to binding slot 0 of the pipeline's vertex input
+            // Bind the vertex buffer to binding 0 and the instance buffer to binding 1 of the pipeline's vertex input
 
-            vkCmdBindVertexBuffers(commandBuffer, 0, stack.longs(vertexBuffer.getHandle()), stack.longs(0L));
+            vkCmdBindVertexBuffers(
+                    commandBuffer,
+                    0,
+                    stack.longs(vertexBuffer.getHandle(), instanceBuffer.getHandle()),
+                    stack.longs(0L, 0L)
+            );
 
             // Bind the index buffer: each index is a 32-bit unsigned int, reading starts at byte 0
 
@@ -178,7 +185,7 @@ public final class VulkanCommandBufferRecorder {
 
             // Draw the triangles described by the indices
 
-            vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+            vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
 
             // End dynamic rendering
 

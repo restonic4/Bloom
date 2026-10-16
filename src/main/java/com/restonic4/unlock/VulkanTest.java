@@ -25,14 +25,18 @@ import com.restonic4.bloom.core.graphics.ShaderSource;
 import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
 import com.restonic4.bloom.core.platform.WindowSystem;
-import com.restonic4.bloom.core.scene.Camera;
+import com.restonic4.bloom.core.math.Time;
+import com.restonic4.bloom.core.scene.MeshData;
+import com.restonic4.bloom.core.scene.MeshInstance;
 import org.joml.Matrix4f;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -97,45 +101,34 @@ public class VulkanTest {
         VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 20 * Float.BYTES);
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
 
-        // Two overlapping quads: the near one (z = 0) is drawn first, the far one (z = -1) second.
-        // Without a depth test the far one would cover part of the near one.
-        float[] quadVertices = {
-                -0.5f, -0.5f,  0.0f,
-                 0.5f, -0.5f,  0.0f,
-                 0.5f,  0.5f,  0.0f,
-                -0.5f,  0.5f,  0.0f,
-
-                -0.1f, -0.2f, -1.0f,
-                 0.9f, -0.2f, -1.0f,
-                 0.9f,  0.8f, -1.0f,
-                -0.1f,  0.8f, -1.0f
-        };
-
-        int[] quadIndices = {
-                0, 1, 2,
-                2, 3, 0,
-
-                4, 5, 6,
-                6, 7, 4
-        };
+        TestScene scene = new TestScene();
+        MeshData cube = scene.mesh();
 
         VulkanBuffer vertexBuffer;
         VulkanBuffer indexBuffer;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            ByteBuffer vertexData = stack.malloc(quadVertices.length * Float.BYTES);
-            vertexData.asFloatBuffer().put(quadVertices);
+            ByteBuffer vertexData = stack.malloc(cube.vertices().length * Float.BYTES);
+            vertexData.asFloatBuffer().put(cube.vertices());
             vertexBuffer = VulkanBuffer.createHostVisible(logicalDevice, vertexData, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-            ByteBuffer indexData = stack.malloc(quadIndices.length * Integer.BYTES);
-            indexData.asIntBuffer().put(quadIndices);
+            ByteBuffer indexData = stack.malloc(cube.indices().length * Integer.BYTES);
+            indexData.asIntBuffer().put(cube.indices());
             indexBuffer = VulkanBuffer.createHostVisible(logicalDevice, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         }
 
-        // TODO: viewProjection is multiplied on the CPU and pushed as one mat4 because 2 mat4 + the colour exceed the
-        //  guaranteed 128 B of push constants. Revisit when uniform buffers exist (not necessarily a defect).
-        Camera camera = new Camera();
-        camera.getTransform().setPosition(0.0f, 0.0f, 2.0f);
+        // One instance buffer per frame slot: the CPU rewrites it every frame while the GPU may still read the other slot's
+        List<VulkanBuffer> instanceBuffers = new ArrayList<>(FRAMES_IN_FLIGHT);
+        for (int i = 0; i < FRAMES_IN_FLIGHT; i++) {
+            instanceBuffers.add(VulkanBuffer.create(
+                    logicalDevice,
+                    (long) scene.instances().size() * 16 * Float.BYTES,
+                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+            ));
+        }
+
+        Time time = new Time();
 
         VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
         List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
@@ -151,6 +144,9 @@ public class VulkanTest {
 
         while (!window.shouldClose()) {
             glfwPollEvents();
+
+            time.update();
+            scene.update(time.delta());
 
             if (resizeRequested) {
                 window.waitForNonZeroFramebuffer();
@@ -173,7 +169,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, vertexBuffer, indexBuffer, quadIndices.length, camera, commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, vertexBuffer, indexBuffer, cube.indexCount(), instanceBuffers, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -185,6 +181,7 @@ public class VulkanTest {
             throw new IllegalStateException("Failed to wait for device idle: " + idleResult);
         }
 
+        instanceBuffers.forEach(VulkanBuffer::dispose);
         indexBuffer.dispose();
         vertexBuffer.dispose();
         depthImage.dispose();
@@ -230,7 +227,9 @@ public class VulkanTest {
             VulkanBuffer vertexBuffer,
             VulkanBuffer indexBuffer,
             int indexCount,
-            Camera camera,
+            List<VulkanBuffer> instanceBuffers,
+            TestScene scene,
+            double elapsedSeconds,
             List<VkCommandBuffer> commandBuffers,
             VulkanFrameSync frameSync,
             int frameIndex
@@ -276,17 +275,21 @@ public class VulkanTest {
 
             VkCommandBuffer commandBuffer = commandBuffers.get(frameIndex);
 
-            // A colour that changes over time: proves the commands are re-recorded every frame
-            float time = (float) glfwGetTime();
-            float[] color = {
-                    0.5f + 0.5f * (float) Math.sin(time),
-                    0.5f + 0.5f * (float) Math.sin(time + 2.0f),
-                    0.5f + 0.5f * (float) Math.sin(time + 4.0f),
-                    1.0f
-            };
+            // Write this frame's model matrices into the slot's instance buffer
+            // (free to overwrite: waitForFrameSlot() waited for the last frame that used it)
 
+            List<MeshInstance> instances = scene.instances();
+            ByteBuffer instanceData = stack.malloc(instances.size() * 16 * Float.BYTES);
+            FloatBuffer instanceFloats = instanceData.asFloatBuffer();
+            for (int i = 0; i < instances.size(); i++) {
+                instances.get(i).getTransform().getModelMatrix().get(i * 16, instanceFloats);
+            }
+            instanceBuffers.get(frameIndex).write(instanceData);
+
+            // TODO: viewProjection is multiplied on the CPU and pushed as one mat4 because 2 mat4 + the colour exceed the
+            //  guaranteed 128 B of push constants. Revisit when uniform buffers exist (not necessarily a defect).
             float aspectRatio = (float) swapChain.getImageWidth() / swapChain.getImageHeight();
-            VulkanClipSpace.viewProjection(camera, aspectRatio, viewProjection);
+            VulkanClipSpace.viewProjection(scene.camera(), aspectRatio, viewProjection);
 
             VulkanCommandBufferRecorder.record(
                     commandBuffer,
@@ -299,8 +302,10 @@ public class VulkanTest {
                     vertexBuffer,
                     indexBuffer,
                     indexCount,
+                    instanceBuffers.get(frameIndex),
+                    instances.size(),
                     viewProjection,
-                    color
+                    scene.color(elapsedSeconds)
             );
 
             // Prepare the semaphore and timeline signal values

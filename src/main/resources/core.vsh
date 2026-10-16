@@ -6,6 +6,11 @@ layout(location = 4) in mat4 aModel;
 uniform mat4 uProjection;
 uniform mat4 uView;
 
+out float vShade;
+
 void main() {
     gl_Position = uProjection * uView * aModel * vec4(aPosition, 1.0);
+
+    // Test only, same formula as the Vulkan shader: further from the camera is darker
+    vShade = max(1.0 - 0.03 * gl_Position.w, 0.1);
 }

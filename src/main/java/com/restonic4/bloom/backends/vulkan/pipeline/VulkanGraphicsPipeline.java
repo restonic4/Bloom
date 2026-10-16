@@ -54,22 +54,37 @@ public final class VulkanGraphicsPipeline implements Disposable {
                 stages.get(i).set(shaderStages[i].createInfo(stack));
             }
 
-            // Vertex input: one binding of tightly packed vec3 positions
+            // Vertex input: binding 0 = vec3 positions per vertex, binding 1 = one model mat4 per instance
 
-            VkVertexInputBindingDescription.Buffer binding = VkVertexInputBindingDescription.calloc(1, stack)
+            VkVertexInputBindingDescription.Buffer bindings = VkVertexInputBindingDescription.calloc(2, stack);
+            bindings.get(0)
                     .binding(0)
                     .stride(3 * Float.BYTES)
                     .inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
+            bindings.get(1)
+                    .binding(1)
+                    .stride(16 * Float.BYTES)
+                    .inputRate(VK_VERTEX_INPUT_RATE_INSTANCE);
 
-            VkVertexInputAttributeDescription.Buffer attributes = VkVertexInputAttributeDescription.calloc(1, stack)
+            VkVertexInputAttributeDescription.Buffer attributes = VkVertexInputAttributeDescription.calloc(5, stack);
+            attributes.get(0)
                     .binding(0)
                     .location(0)
                     .format(VK_FORMAT_R32G32B32_SFLOAT)
                     .offset(0);
 
+            // A mat4 occupies 4 consecutive locations, one vec4 column each
+            for (int column = 0; column < 4; column++) {
+                attributes.get(1 + column)
+                        .binding(1)
+                        .location(1 + column)
+                        .format(VK_FORMAT_R32G32B32A32_SFLOAT)
+                        .offset(column * 4 * Float.BYTES);
+            }
+
             VkPipelineVertexInputStateCreateInfo vertexInput = VkPipelineVertexInputStateCreateInfo.calloc(stack)
                     .sType$Default()
-                    .pVertexBindingDescriptions(binding)
+                    .pVertexBindingDescriptions(bindings)
                     .pVertexAttributeDescriptions(attributes);
 
             // Input assembly

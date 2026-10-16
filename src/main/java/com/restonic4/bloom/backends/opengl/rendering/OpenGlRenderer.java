@@ -22,7 +22,7 @@ public class OpenGlRenderer {
     }
 
     // TODO: reuse float buffer
-    public void render(Camera mainCamera, RenderTarget renderTarget, OpenGlMesh mesh, List<MeshInstance> instances) {
+    public void render(Camera mainCamera, RenderTarget renderTarget, OpenGlMesh mesh, List<MeshInstance> instances, float[] color) {
         shader.bind();
 
         float aspectRatio = renderTarget.getAspectRatio();
@@ -31,6 +31,7 @@ public class OpenGlRenderer {
 
         shader.set("uProjection", projectionMatrix);
         shader.set("uView", viewMatrix);
+        shader.set("uColor", color[0], color[1], color[2], color[3]);
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer instanceBuffer = stack.mallocFloat(instances.size() * 16);
