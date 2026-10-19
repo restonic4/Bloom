@@ -104,17 +104,19 @@ public class VulkanTest {
         TestScene scene = new TestScene();
         MeshData cube = scene.mesh();
 
+        VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
+
         VulkanBuffer vertexBuffer;
         VulkanBuffer indexBuffer;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             ByteBuffer vertexData = stack.malloc(cube.vertices().length * Float.BYTES);
             vertexData.asFloatBuffer().put(cube.vertices());
-            vertexBuffer = VulkanBuffer.createHostVisible(logicalDevice, vertexData, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+            vertexBuffer = VulkanBuffer.createDeviceLocal(logicalDevice, commandPool, vertexData, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
             ByteBuffer indexData = stack.malloc(cube.indices().length * Integer.BYTES);
             indexData.asIntBuffer().put(cube.indices());
-            indexBuffer = VulkanBuffer.createHostVisible(logicalDevice, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+            indexBuffer = VulkanBuffer.createDeviceLocal(logicalDevice, commandPool, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         }
 
         // One instance buffer per frame slot: the CPU rewrites it every frame while the GPU may still read the other slot's
@@ -130,7 +132,6 @@ public class VulkanTest {
 
         Time time = new Time();
 
-        VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
         List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
 
         VulkanFrameSync frameSync = VulkanFrameSync.create(logicalDevice, swapChainTarget.getSwapChain().getImageHandles().length, FRAMES_IN_FLIGHT);

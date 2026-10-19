@@ -1,5 +1,6 @@
 package com.restonic4.bloom.backends.vulkan.buffer;
 
+import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
 import com.restonic4.bloom.backends.vulkan.memory.VulkanMemory;
 import com.restonic4.bloom.core.Disposable;
@@ -112,6 +113,43 @@ public final class VulkanBuffer implements Disposable {
         }
 
         return buffer;
+    }
+
+    // Uploads through a staging buffer: CPU fills a host visible buffer, the GPU copies it into device local memory.
+    // Blocks until the copy is done (see VulkanCommandPool.submitOneTime), so use it for startup data.
+    public static VulkanBuffer createDeviceLocal(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, ByteBuffer data, int usage) {
+        long size = data.remaining();
+
+        VulkanBuffer staging = createHostVisible(logicalDevice, data, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+
+        try {
+            VulkanBuffer buffer = create(
+                    logicalDevice,
+                    size,
+                    usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+            );
+
+            try {
+                commandPool.submitOneTime(logicalDevice.getGraphicsQueue(), commandBuffer -> {
+                    try (MemoryStack stack = MemoryStack.stackPush()) {
+                        VkBufferCopy.Buffer region = VkBufferCopy.calloc(1, stack)
+                                .srcOffset(0)
+                                .dstOffset(0)
+                                .size(size);
+
+                        vkCmdCopyBuffer(commandBuffer, staging.handle, buffer.handle, region);
+                    }
+                });
+            } catch (RuntimeException e) {
+                buffer.dispose();
+                throw e;
+            }
+
+            return buffer;
+        } finally {
+            staging.dispose();
+        }
     }
 
     public void write(ByteBuffer data) {
