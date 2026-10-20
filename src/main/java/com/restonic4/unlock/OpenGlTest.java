@@ -15,6 +15,7 @@ public class OpenGlTest {
 
         TestScene scene = new TestScene();
         OpenGlMesh mesh = new OpenGlMesh(scene.mesh());
+        OpenGlMesh planeMesh = new OpenGlMesh(scene.planeMesh());
         OpenGlRenderer renderer = new OpenGlRenderer();
 
         glEnable(GL_DEPTH_TEST);
@@ -34,10 +35,12 @@ public class OpenGlTest {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             renderer.render(scene.camera(), window, mesh, scene.instances(), scene.color(time.elapsedSeconds()));
+            renderer.render(scene.camera(), window, planeMesh, scene.planeInstances(), scene.color(time.elapsedSeconds()));
 
             glfwSwapBuffers(window.getHandle());
         }
 
+        planeMesh.dispose();
         mesh.dispose();
         window.dispose();
         glfwTerminate();

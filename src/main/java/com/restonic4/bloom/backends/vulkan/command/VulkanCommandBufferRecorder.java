@@ -9,6 +9,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.FloatBuffer;
+import java.util.List;
 
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -27,11 +28,8 @@ public final class VulkanCommandBufferRecorder {
             int height,
             VulkanGraphicsPipeline pipeline,
             VulkanDepthImage depthImage,
-            VulkanBuffer vertexBuffer,
-            VulkanBuffer indexBuffer,
-            int indexCount,
+            List<VulkanMeshDraw> draws,
             VulkanBuffer instanceBuffer,
-            int instanceCount,
             Matrix4fc viewProjection,
             float[] color
     ) {
@@ -170,22 +168,24 @@ public final class VulkanCommandBufferRecorder {
             VulkanPipelineLayout layout = pipeline.getLayout();
             vkCmdPushConstants(commandBuffer, layout.getHandle(), layout.getPushConstantStages(), 0, pushData);
 
-            // Bind the vertex buffer to binding 0 and the instance buffer to binding 1 of the pipeline's vertex input
+            for (VulkanMeshDraw draw : draws) {
+                // Bind the mesh's vertex buffer to binding 0 and the shared instance buffer to binding 1 of the pipeline's vertex input
 
-            vkCmdBindVertexBuffers(
-                    commandBuffer,
-                    0,
-                    stack.longs(vertexBuffer.getHandle(), instanceBuffer.getHandle()),
-                    stack.longs(0L, 0L)
-            );
+                vkCmdBindVertexBuffers(
+                        commandBuffer,
+                        0,
+                        stack.longs(draw.vertexBuffer().getHandle(), instanceBuffer.getHandle()),
+                        stack.longs(0L, 0L)
+                );
 
-            // Bind the index buffer: each index is a 32-bit unsigned int, reading starts at byte 0
+                // Bind the index buffer: each index is a 32-bit unsigned int, reading starts at byte 0
 
-            vkCmdBindIndexBuffer(commandBuffer, indexBuffer.getHandle(), 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer().getHandle(), 0, VK_INDEX_TYPE_UINT32);
 
-            // Draw the triangles described by the indices
+                // Draw the triangles described by the indices. firstInstance skips to this mesh's matrices in the instance buffer
 
-            vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, 0);
+                vkCmdDrawIndexed(commandBuffer, draw.indexCount(), draw.instanceCount(), 0, 0, draw.firstInstance());
+            }
 
             // End dynamic rendering
 
