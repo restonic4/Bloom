@@ -15,8 +15,7 @@ import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL33.glVertexAttribDivisor;
 
 public class OpenGlMesh implements Disposable {
-    private static final int FLOATS_PER_VERTEX = 3 + 3 + 3 + 2; // P + N + T + UV
-    private static final int STRIDE = FLOATS_PER_VERTEX * Float.BYTES;
+    private static final int STRIDE = MeshData.FLOATS_PER_VERTEX * Float.BYTES;
 
     private final int vao;
 
@@ -32,7 +31,7 @@ public class OpenGlMesh implements Disposable {
         vao = glGenVertexArrays();
         glBindVertexArray(vao);
 
-        vertexVbo = createVertexVbo(data.vertexCount(), data.vertices(), data.normals(), data.tangents(), data.uvs());
+        vertexVbo = createVertexVbo(data.interleavedVertices());
         indexVbo = createIndexVbo(data.indices());
         instanceVbo = createInstanceVbo();
 
@@ -40,31 +39,9 @@ public class OpenGlMesh implements Disposable {
         glBindVertexArray(0);
     }
 
-    public static int createVertexVbo(int vertexCount, float[] vertices, float[] normals, float[] tangents, float[] uvs) {
-        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(vertexCount * FLOATS_PER_VERTEX);
-
-        for (int i = 0; i < vertexCount; i++) {
-            // Position
-            vertexBuffer.put(vertices[i * 3]);
-            vertexBuffer.put(vertices[i * 3 + 1]);
-            vertexBuffer.put(vertices[i * 3 + 2]);
-
-            // Normal
-            vertexBuffer.put(normals[i * 3]);
-            vertexBuffer.put(normals[i * 3 + 1]);
-            vertexBuffer.put(normals[i * 3 + 2]);
-
-            // Tangent
-            vertexBuffer.put(tangents[i * 3]);
-            vertexBuffer.put(tangents[i * 3 + 1]);
-            vertexBuffer.put(tangents[i * 3 + 2]);
-
-            // UV
-            vertexBuffer.put(uvs[i * 2]);
-            vertexBuffer.put(uvs[i * 2 + 1]);
-        }
-
-        vertexBuffer.flip();
+    public static int createVertexVbo(float[] interleavedVertices) {
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(interleavedVertices.length);
+        vertexBuffer.put(interleavedVertices).flip();
 
         int vbo = glGenBuffers();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
