@@ -8,7 +8,9 @@ public final class VulkanClipSpace {
     // TODO: Camera builds OpenGL clip space (depth -1..1, y up) but Vulkan wants depth 0..1 and y down.
     //  The correction lives here only because the OpenGL/Vulkan abstraction does not exist yet.
     //  When it does, move it into Camera (a clip-space setting) and delete this class.
-    //  The y flip reverses triangle winding: remember it when turning on face culling.
+    //  The y flip alone would reverse winding, but Vulkan judges winding in y-down framebuffer
+    //  coordinates, which cancels it: the image comes out upright and VK_FRONT_FACE_COUNTER_CLOCKWISE
+    //  is the right setting, same as OpenGL (verified by experiment with the plane, 2026-10-20).
     private static final Matrix4fc OPENGL_TO_VULKAN = new Matrix4f()
             .m11(-1.0f)
             .m22(0.5f)
