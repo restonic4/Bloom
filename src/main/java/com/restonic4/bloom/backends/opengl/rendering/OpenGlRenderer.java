@@ -24,6 +24,7 @@ public class OpenGlRenderer {
     // TODO: reuse float buffer
     public void render(Camera mainCamera, RenderTarget renderTarget, OpenGlMesh mesh, List<MeshInstance> instances, float[] color) {
         shader.bind();
+        shader.set("uTexture", 0);
 
         float aspectRatio = renderTarget.getAspectRatio();
         Matrix4fc projectionMatrix = mainCamera.getProjectionMatrix(aspectRatio);

@@ -1,11 +1,13 @@
 #version 330 core
 
 in float vShade;
+in vec2 vUv;
 
 uniform vec4 uColor;
+uniform sampler2D uTexture;
 
 out vec4 FragColor;
 
 void main() {
-    FragColor = vec4(uColor.rgb * vShade, uColor.a);
+    FragColor = texture(uTexture, vUv);
 }
