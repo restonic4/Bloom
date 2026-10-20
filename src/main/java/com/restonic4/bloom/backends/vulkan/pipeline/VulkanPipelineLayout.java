@@ -1,5 +1,6 @@
 package com.restonic4.bloom.backends.vulkan.pipeline;
 
+import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorSetLayout;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
 import com.restonic4.bloom.core.Disposable;
 import org.lwjgl.system.MemoryStack;
@@ -23,14 +24,17 @@ public final class VulkanPipelineLayout implements Disposable {
     }
 
     /**
+     * @param setLayout the layout of descriptor set 0
      * @param pushConstantStages shader stages that read the push constants (VK_SHADER_STAGE_*)
      * @param pushConstantSize size in bytes of the push constant block, 0 for none
      */
-    public static VulkanPipelineLayout create(VulkanLogicalDevice logicalDevice, int pushConstantStages, int pushConstantSize) {
+    public static VulkanPipelineLayout create(VulkanLogicalDevice logicalDevice, VulkanDescriptorSetLayout setLayout, int pushConstantStages, int pushConstantSize) {
         VkDevice device = logicalDevice.getHandle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            VkPipelineLayoutCreateInfo createInfo = VkPipelineLayoutCreateInfo.calloc(stack).sType$Default();
+            VkPipelineLayoutCreateInfo createInfo = VkPipelineLayoutCreateInfo.calloc(stack)
+                    .sType$Default()
+                    .pSetLayouts(stack.longs(setLayout.getHandle()));
 
             if (pushConstantSize > 0) {
                 VkPushConstantRange.Buffer pushConstantRanges = VkPushConstantRange.calloc(1, stack);

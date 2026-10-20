@@ -4,9 +4,8 @@ layout(location = 0) in float inShade;
 
 layout(location = 0) out vec4 outColor;
 
-// Written by the CPU into the command buffer (vkCmdPushConstants), same block as the vertex shader
+// Written by the CPU into the command buffer (vkCmdPushConstants), read by this stage only
 layout(push_constant) uniform PushConstants {
-    mat4 viewProj;
     vec4 color;
 } pushConstants;
 

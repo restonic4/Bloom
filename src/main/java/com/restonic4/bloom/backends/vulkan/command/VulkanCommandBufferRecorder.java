@@ -4,7 +4,6 @@ import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
-import org.joml.Matrix4fc;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
@@ -30,7 +29,7 @@ public final class VulkanCommandBufferRecorder {
             VulkanDepthImage depthImage,
             List<VulkanMeshDraw> draws,
             VulkanBuffer instanceBuffer,
-            Matrix4fc viewProjection,
+            long descriptorSet,
             float[] color
     ) {
         if (width <= 0 || height <= 0) {
@@ -159,14 +158,17 @@ public final class VulkanCommandBufferRecorder {
 
             vkCmdSetScissor(commandBuffer, 0, scissor);
 
-            // Push constants: viewProjection (16 floats) then colour (4 floats), same order as the shader block
+            // Push constants: the colour (4 floats), same as the fragment shader block
 
-            FloatBuffer pushData = stack.mallocFloat(20);
-            viewProjection.get(0, pushData);
-            pushData.put(16, color);
+            FloatBuffer pushData = stack.mallocFloat(4);
+            pushData.put(0, color);
 
             VulkanPipelineLayout layout = pipeline.getLayout();
             vkCmdPushConstants(commandBuffer, layout.getHandle(), layout.getPushConstantStages(), 0, pushData);
+
+            // Bind the descriptor set (camera buffer) to set 0 of the pipeline layout
+
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.getHandle(), 0, stack.longs(descriptorSet), null);
 
             for (VulkanMeshDraw draw : draws) {
                 // Bind the mesh's vertex buffer to binding 0 and the shared instance buffer to binding 1 of the pipeline's vertex input

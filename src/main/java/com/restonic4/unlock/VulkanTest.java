@@ -8,6 +8,9 @@ import com.restonic4.bloom.backends.vulkan.camera.VulkanClipSpace;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.command.VulkanMeshDraw;
+import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorPool;
+import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorSetLayout;
+import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorWriter;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
 import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
 import com.restonic4.bloom.backends.vulkan.device.VulkanPhysicalDevice;
@@ -99,7 +102,26 @@ public class VulkanTest {
         VulkanShaderStage vertexStage = new VulkanShaderStage(vertexShader, VK_SHADER_STAGE_VERTEX_BIT);
         VulkanShaderStage fragmentStage = new VulkanShaderStage(fragmentShader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 20 * Float.BYTES);
+        VulkanDescriptorSetLayout cameraSetLayout = VulkanDescriptorSetLayout.create(logicalDevice, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, cameraSetLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES);
+
+        // One set per frame slot, each will point at that slot's camera buffer
+        VulkanDescriptorPool descriptorPool = VulkanDescriptorPool.create(logicalDevice, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, FRAMES_IN_FLIGHT);
+        long[] cameraSets = descriptorPool.allocateSets(cameraSetLayout, FRAMES_IN_FLIGHT);
+
+        // One camera buffer per frame slot (the CPU rewrites it every frame), each plugged into its slot's set
+        long cameraBufferSize = 16 * Float.BYTES;
+        List<VulkanBuffer> cameraBuffers = new ArrayList<>(FRAMES_IN_FLIGHT);
+        for (int i = 0; i < FRAMES_IN_FLIGHT; i++) {
+            VulkanBuffer cameraBuffer = VulkanBuffer.create(
+                    logicalDevice,
+                    cameraBufferSize,
+                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+            );
+            cameraBuffers.add(cameraBuffer);
+            VulkanDescriptorWriter.writeUniformBuffer(logicalDevice, cameraSets[i], 0, cameraBuffer, cameraBufferSize);
+        }
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
 
         TestScene scene = new TestScene();
@@ -166,7 +188,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, draws, instanceBuffers, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, draws, instanceBuffers, cameraBuffers, cameraSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -179,6 +201,7 @@ public class VulkanTest {
         }
 
         instanceBuffers.forEach(VulkanBuffer::dispose);
+        cameraBuffers.forEach(VulkanBuffer::dispose);
         for (VulkanMeshDraw draw : draws) {
             draw.indexBuffer().dispose();
             draw.vertexBuffer().dispose();
@@ -187,6 +210,8 @@ public class VulkanTest {
 
         graphicsPipeline.dispose();
         pipelineLayout.dispose();
+        descriptorPool.dispose();
+        cameraSetLayout.dispose();
 
         vertexShader.dispose();
         fragmentShader.dispose();
@@ -240,6 +265,8 @@ public class VulkanTest {
             VulkanDepthImage depthImage,
             List<VulkanMeshDraw> draws,
             List<VulkanBuffer> instanceBuffers,
+            List<VulkanBuffer> cameraBuffers,
+            long[] cameraSets,
             TestScene scene,
             double elapsedSeconds,
             List<VkCommandBuffer> commandBuffers,
@@ -299,10 +326,13 @@ public class VulkanTest {
             }
             instanceBuffers.get(frameIndex).write(instanceData);
 
-            // TODO: viewProjection is multiplied on the CPU and pushed as one mat4 because 2 mat4 + the colour exceed the
-            //  guaranteed 128 B of push constants. Revisit when uniform buffers exist (not necessarily a defect).
             float aspectRatio = (float) swapChain.getImageWidth() / swapChain.getImageHeight();
             VulkanClipSpace.viewProjection(scene.camera(), aspectRatio, viewProjection);
+
+            // Write it into this slot's camera buffer (same reasoning as the instance buffer: the slot is free to overwrite)
+            ByteBuffer cameraData = stack.malloc(16 * Float.BYTES);
+            viewProjection.get(0, cameraData);
+            cameraBuffers.get(frameIndex).write(cameraData);
 
             VulkanCommandBufferRecorder.record(
                     commandBuffer,
@@ -314,7 +344,7 @@ public class VulkanTest {
                     depthImage,
                     draws,
                     instanceBuffers.get(frameIndex),
-                    viewProjection,
+                    cameraSets[frameIndex],
                     scene.color(elapsedSeconds)
             );
 
