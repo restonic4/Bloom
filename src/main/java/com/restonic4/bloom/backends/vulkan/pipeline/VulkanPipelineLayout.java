@@ -24,17 +24,23 @@ public final class VulkanPipelineLayout implements Disposable {
     }
 
     /**
-     * @param setLayout the layout of descriptor set 0
      * @param pushConstantStages shader stages that read the push constants (VK_SHADER_STAGE_*)
      * @param pushConstantSize size in bytes of the push constant block, 0 for none
+     * @param setLayouts the layouts of descriptor sets 0, 1, ... in order
      */
-    public static VulkanPipelineLayout create(VulkanLogicalDevice logicalDevice, VulkanDescriptorSetLayout setLayout, int pushConstantStages, int pushConstantSize) {
+    public static VulkanPipelineLayout create(VulkanLogicalDevice logicalDevice, int pushConstantStages, int pushConstantSize, VulkanDescriptorSetLayout... setLayouts) {
         VkDevice device = logicalDevice.getHandle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
+            LongBuffer setLayoutHandles = stack.mallocLong(setLayouts.length);
+            for (VulkanDescriptorSetLayout setLayout : setLayouts) {
+                setLayoutHandles.put(setLayout.getHandle());
+            }
+            setLayoutHandles.flip();
+
             VkPipelineLayoutCreateInfo createInfo = VkPipelineLayoutCreateInfo.calloc(stack)
                     .sType$Default()
-                    .pSetLayouts(stack.longs(setLayout.getHandle()));
+                    .pSetLayouts(setLayoutHandles);
 
             if (pushConstantSize > 0) {
                 VkPushConstantRange.Buffer pushConstantRanges = VkPushConstantRange.calloc(1, stack);

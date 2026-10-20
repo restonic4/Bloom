@@ -3,6 +3,7 @@ package com.restonic4.bloom.backends.vulkan.command;
 import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
 import com.restonic4.bloom.backends.vulkan.image.VulkanImageBarrier;
+import com.restonic4.bloom.backends.vulkan.material.VulkanMaterialLibrary;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
 import org.lwjgl.system.MemoryStack;
@@ -172,6 +173,10 @@ public final class VulkanCommandBufferRecorder {
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.getHandle(), 0, stack.longs(descriptorSet), null);
 
             for (VulkanMeshDraw draw : draws) {
+                // Bind the material's descriptor set (texture) to set 1
+
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.getHandle(), VulkanMaterialLibrary.SET_INDEX, stack.longs(draw.materialSet()), null);
+
                 // Bind the mesh's vertex buffer to binding 0 and the shared instance buffer to binding 1 of the pipeline's vertex input
 
                 vkCmdBindVertexBuffers(

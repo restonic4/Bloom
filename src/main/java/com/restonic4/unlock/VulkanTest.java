@@ -14,10 +14,9 @@ import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorSetLayout;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorWriter;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
 import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
-import com.restonic4.bloom.backends.vulkan.image.VulkanImage;
-import com.restonic4.bloom.backends.vulkan.image.VulkanSampler;
 import com.restonic4.bloom.backends.vulkan.device.VulkanPhysicalDevice;
 import com.restonic4.bloom.backends.vulkan.instance.VulkanInstance;
+import com.restonic4.bloom.backends.vulkan.material.VulkanMaterialLibrary;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
 import com.restonic4.bloom.backends.vulkan.shader.VulkanGlslCompiler;
@@ -33,7 +32,6 @@ import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
 import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.math.Time;
-import com.restonic4.bloom.core.scene.ImageData;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
 import org.joml.Matrix4f;
@@ -106,17 +104,19 @@ public class VulkanTest {
         VulkanShaderStage vertexStage = new VulkanShaderStage(vertexShader, VK_SHADER_STAGE_VERTEX_BIT);
         VulkanShaderStage fragmentStage = new VulkanShaderStage(fragmentShader, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-        // Set 0: binding 0 = camera buffer (vertex stage), binding 1 = texture + sampler (fragment stage)
-        VulkanDescriptorSetLayout setLayout = VulkanDescriptorSetLayout.create(
+        VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
+
+        // Set 0 (per frame slot): the camera buffer. Set 1 (per material): the texture, owned by the material library
+        VulkanDescriptorSetLayout cameraSetLayout = VulkanDescriptorSetLayout.create(
                 logicalDevice,
-                new VulkanDescriptorBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
-                new VulkanDescriptorBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                new VulkanDescriptorBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
         );
-        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, setLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES);
+        VulkanMaterialLibrary materials = new VulkanMaterialLibrary(logicalDevice, commandPool);
+        VulkanPipelineLayout pipelineLayout = VulkanPipelineLayout.create(logicalDevice, VK_SHADER_STAGE_FRAGMENT_BIT, 4 * Float.BYTES, cameraSetLayout, materials.getSetLayout());
 
         // One set per frame slot, each will point at that slot's camera buffer
-        VulkanDescriptorPool descriptorPool = VulkanDescriptorPool.create(logicalDevice, FRAMES_IN_FLIGHT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        long[] descriptorSets = descriptorPool.allocateSets(setLayout, FRAMES_IN_FLIGHT);
+        VulkanDescriptorPool descriptorPool = VulkanDescriptorPool.create(logicalDevice, FRAMES_IN_FLIGHT, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        long[] cameraSets = descriptorPool.allocateSets(cameraSetLayout, FRAMES_IN_FLIGHT);
 
         // One camera buffer per frame slot (the CPU rewrites it every frame), each plugged into its slot's set
         long cameraBufferSize = 16 * Float.BYTES;
@@ -129,38 +129,20 @@ public class VulkanTest {
                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
             );
             cameraBuffers.add(cameraBuffer);
-            VulkanDescriptorWriter.writeUniformBuffer(logicalDevice, descriptorSets[i], 0, cameraBuffer, cameraBufferSize);
+            VulkanDescriptorWriter.writeUniformBuffer(logicalDevice, cameraSets[i], 0, cameraBuffer, cameraBufferSize);
         }
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
 
         TestScene scene = new TestScene();
-
-        VulkanCommandPool commandPool = VulkanCommandPool.create(logicalDevice);
 
         // All instance matrices live in one buffer: the cubes first, then the plane
         int cubeCount = scene.instances().size();
         int planeCount = scene.planeInstances().size();
 
         List<VulkanMeshDraw> draws = List.of(
-                uploadMesh(logicalDevice, commandPool, scene.mesh(), 0, cubeCount),
-                uploadMesh(logicalDevice, commandPool, scene.planeMesh(), cubeCount, planeCount)
+                uploadMesh(logicalDevice, commandPool, scene.mesh(), 0, cubeCount, materials.setFor(scene.cubeMaterial())),
+                uploadMesh(logicalDevice, commandPool, scene.planeMesh(), cubeCount, planeCount, materials.setFor(scene.planeMaterial()))
         );
-
-        // Test only: the checkerboard image on the GPU, pixels uploaded, not read by any shader yet
-        ImageData checkerImage = ImageData.load("checker.png");
-        VulkanImage textureImage = VulkanImage.create(
-                logicalDevice,
-                checkerImage.width(),
-                checkerImage.height(),
-                VK_FORMAT_R8G8B8A8_SRGB,
-                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                VK_IMAGE_ASPECT_COLOR_BIT
-        );
-        textureImage.upload(logicalDevice, commandPool, checkerImage.pixels());
-        VulkanSampler textureSampler = VulkanSampler.create(logicalDevice);
-        for (long descriptorSet : descriptorSets) {
-            VulkanDescriptorWriter.writeCombinedImageSampler(logicalDevice, descriptorSet, 1, textureImage.getViewHandle(), textureSampler.getHandle());
-        }
 
         // One instance buffer per frame slot: the CPU rewrites it every frame while the GPU may still read the other slot's
         List<VulkanBuffer> instanceBuffers = new ArrayList<>(FRAMES_IN_FLIGHT);
@@ -213,7 +195,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, draws, instanceBuffers, cameraBuffers, descriptorSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, draws, instanceBuffers, cameraBuffers, cameraSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -225,8 +207,6 @@ public class VulkanTest {
             throw new IllegalStateException("Failed to wait for device idle: " + idleResult);
         }
 
-        textureSampler.dispose();
-        textureImage.dispose();
         instanceBuffers.forEach(VulkanBuffer::dispose);
         cameraBuffers.forEach(VulkanBuffer::dispose);
         for (VulkanMeshDraw draw : draws) {
@@ -237,8 +217,9 @@ public class VulkanTest {
 
         graphicsPipeline.dispose();
         pipelineLayout.dispose();
+        materials.dispose();
         descriptorPool.dispose();
-        setLayout.dispose();
+        cameraSetLayout.dispose();
 
         vertexShader.dispose();
         fragmentShader.dispose();
@@ -257,7 +238,7 @@ public class VulkanTest {
     }
 
     // Mesh buffers are device-local, filled through staging
-    private static VulkanMeshDraw uploadMesh(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, MeshData mesh, int firstInstance, int instanceCount) {
+    private static VulkanMeshDraw uploadMesh(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, MeshData mesh, int firstInstance, int instanceCount, long materialSet) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             float[] vertices = mesh.interleavedVertices();
             ByteBuffer vertexData = stack.malloc(vertices.length * Float.BYTES);
@@ -268,7 +249,7 @@ public class VulkanTest {
             indexData.asIntBuffer().put(mesh.indices());
             VulkanBuffer indexBuffer = VulkanBuffer.createDeviceLocal(logicalDevice, commandPool, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-            return new VulkanMeshDraw(vertexBuffer, indexBuffer, mesh.indexCount(), firstInstance, instanceCount);
+            return new VulkanMeshDraw(vertexBuffer, indexBuffer, mesh.indexCount(), firstInstance, instanceCount, materialSet);
         }
     }
 
@@ -294,7 +275,7 @@ public class VulkanTest {
             List<VulkanMeshDraw> draws,
             List<VulkanBuffer> instanceBuffers,
             List<VulkanBuffer> cameraBuffers,
-            long[] descriptorSets,
+            long[] cameraSets,
             TestScene scene,
             double elapsedSeconds,
             List<VkCommandBuffer> commandBuffers,
@@ -372,7 +353,7 @@ public class VulkanTest {
                     depthImage,
                     draws,
                     instanceBuffers.get(frameIndex),
-                    descriptorSets[frameIndex],
+                    cameraSets[frameIndex],
                     scene.color(elapsedSeconds)
             );
 

@@ -3,9 +3,7 @@ package com.restonic4.unlock;
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
 import com.restonic4.bloom.backends.opengl.mesh.OpenGlMesh;
 import com.restonic4.bloom.backends.opengl.rendering.OpenGlRenderer;
-import com.restonic4.bloom.backends.opengl.texture.OpenGlTexture;
 import com.restonic4.bloom.core.math.Time;
-import com.restonic4.bloom.core.scene.ImageData;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -19,7 +17,6 @@ public class OpenGlTest {
         OpenGlMesh mesh = new OpenGlMesh(scene.mesh());
         OpenGlMesh planeMesh = new OpenGlMesh(scene.planeMesh());
         OpenGlRenderer renderer = new OpenGlRenderer();
-        OpenGlTexture texture = new OpenGlTexture(ImageData.load("checker.png"));
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_FRAMEBUFFER_SRGB);
@@ -37,15 +34,13 @@ public class OpenGlTest {
             glClearColor(0.02f, 0.02f, 0.03f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            texture.bind(0);
-
-            renderer.render(scene.camera(), window, mesh, scene.instances(), scene.color(time.elapsedSeconds()));
-            renderer.render(scene.camera(), window, planeMesh, scene.planeInstances(), scene.color(time.elapsedSeconds()));
+            renderer.render(scene.camera(), window, mesh, scene.cubeMaterial(), scene.instances(), scene.color(time.elapsedSeconds()));
+            renderer.render(scene.camera(), window, planeMesh, scene.planeMaterial(), scene.planeInstances(), scene.color(time.elapsedSeconds()));
 
             glfwSwapBuffers(window.getHandle());
         }
 
-        texture.dispose();
+        renderer.dispose();
         planeMesh.dispose();
         mesh.dispose();
         window.dispose();

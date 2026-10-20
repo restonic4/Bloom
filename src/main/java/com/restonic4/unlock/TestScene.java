@@ -2,8 +2,10 @@ package com.restonic4.unlock;
 
 import com.restonic4.bloom.core.math.Transform;
 import com.restonic4.bloom.core.scene.Camera;
+import com.restonic4.bloom.core.scene.Material;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
+import com.restonic4.bloom.core.scene.Texture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +16,10 @@ public final class TestScene {
     private final MeshData mesh = MeshData.load("Cube.glb").getFirst();
     private final MeshData planeMesh = createPlane(10.0f);
     private final Camera camera = new Camera();
+
+    private final Texture checker = Texture.load("checker.png");
+    private final Material cubeMaterial = new Material(checker);
+    private final Material planeMaterial = new Material(checker);
 
     private final List<MeshInstance> instances = new ArrayList<>();
     private final List<MeshInstance> spinningInstances = new ArrayList<>();
@@ -90,6 +96,8 @@ public final class TestScene {
 
     public MeshData mesh() { return mesh; }
     public MeshData planeMesh() { return planeMesh; }
+    public Material cubeMaterial() { return cubeMaterial; }
+    public Material planeMaterial() { return planeMaterial; }
     public Camera camera() { return camera; }
     public List<MeshInstance> instances() { return instances; }
     public List<MeshInstance> planeInstances() { return planeInstances; }

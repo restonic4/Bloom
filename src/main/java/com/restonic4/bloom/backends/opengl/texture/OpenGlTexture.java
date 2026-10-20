@@ -2,6 +2,7 @@ package com.restonic4.bloom.backends.opengl.texture;
 
 import com.restonic4.bloom.core.Disposable;
 import com.restonic4.bloom.core.scene.ImageData;
+import com.restonic4.bloom.core.scene.Texture;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.GL_CLAMP_TO_EDGE;
@@ -12,7 +13,9 @@ import static org.lwjgl.opengl.GL21.GL_SRGB8_ALPHA8;
 public class OpenGlTexture implements Disposable {
     private final int id;
 
-    public OpenGlTexture(ImageData image) {
+    public OpenGlTexture(Texture texture) {
+        ImageData image = texture.image();
+
         id = glGenTextures();
         glBindTexture(GL_TEXTURE_2D, id);
 
