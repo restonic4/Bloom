@@ -2,6 +2,7 @@ package com.restonic4.bloom.backends.vulkan.command;
 
 import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
+import com.restonic4.bloom.backends.vulkan.image.VulkanImageBarrier;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
 import org.lwjgl.system.MemoryStack;
@@ -54,7 +55,7 @@ public final class VulkanCommandBufferRecorder {
 
             // Transition the swapchain image for color rendering
 
-            transitionImage(
+            VulkanImageBarrier.transition(
                     commandBuffer,
                     image,
                     VK_IMAGE_ASPECT_COLOR_BIT,
@@ -70,7 +71,7 @@ public final class VulkanCommandBufferRecorder {
             // Transition the depth image. The same image is shared by every frame in flight, so the source
             // is a depth write (not NONE): the previous frame's depth work must finish before this frame's starts.
 
-            transitionImage(
+            VulkanImageBarrier.transition(
                     commandBuffer,
                     depthImage.getImageHandle(),
                     VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -195,7 +196,7 @@ public final class VulkanCommandBufferRecorder {
 
             // Prepare the image for presentation
 
-            transitionImage(
+            VulkanImageBarrier.transition(
                     commandBuffer,
                     image,
                     VK_IMAGE_ASPECT_COLOR_BIT,
@@ -215,47 +216,5 @@ public final class VulkanCommandBufferRecorder {
                 throw new IllegalStateException("Failed to end command buffer: " + result);
             }
         }
-    }
-
-    private static void transitionImage(
-            VkCommandBuffer commandBuffer,
-            long image,
-            int aspectMask,
-            int oldLayout,
-            int newLayout,
-            long srcStage,
-            long srcAccess,
-            long dstStage,
-            long dstAccess,
-            MemoryStack stack
-    ) {
-
-        VkImageSubresourceRange.Buffer subresourceRange = VkImageSubresourceRange.calloc(1, stack);
-        subresourceRange.get(0)
-                .aspectMask(aspectMask)
-                .baseMipLevel(0)
-                .levelCount(1)
-                .baseArrayLayer(0)
-                .layerCount(1);
-
-        VkImageMemoryBarrier2.Buffer imageBarrier = VkImageMemoryBarrier2.calloc(1, stack);
-        imageBarrier.get(0)
-                .sType$Default()
-                .srcStageMask(srcStage)
-                .srcAccessMask(srcAccess)
-                .dstStageMask(dstStage)
-                .dstAccessMask(dstAccess)
-                .oldLayout(oldLayout)
-                .newLayout(newLayout)
-                .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .image(image)
-                .subresourceRange(subresourceRange.get(0));
-
-        VkDependencyInfo dependencyInfo = VkDependencyInfo.calloc(stack)
-                .sType$Default()
-                .pImageMemoryBarriers(imageBarrier);
-
-        vkCmdPipelineBarrier2(commandBuffer, dependencyInfo);
     }
 }

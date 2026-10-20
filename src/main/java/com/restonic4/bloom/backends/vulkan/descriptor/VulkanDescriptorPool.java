@@ -23,19 +23,21 @@ public final class VulkanDescriptorPool implements Disposable {
     }
 
     /**
-     * A pool for sets that each hold one descriptor of the same type.
+     * A pool for sets that each hold one descriptor of every listed type.
      *
-     * @param descriptorType VK_DESCRIPTOR_TYPE_*
-     * @param maxSets how many sets can be allocated from the pool, and so how many descriptors of that type it reserves
+     * @param maxSets how many sets can be allocated from the pool, and so how many descriptors of each type it reserves
+     * @param descriptorTypes VK_DESCRIPTOR_TYPE_*, each type once
      */
-    public static VulkanDescriptorPool create(VulkanLogicalDevice logicalDevice, int descriptorType, int maxSets) {
+    public static VulkanDescriptorPool create(VulkanLogicalDevice logicalDevice, int maxSets, int... descriptorTypes) {
         VkDevice device = logicalDevice.getHandle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            VkDescriptorPoolSize.Buffer poolSizes = VkDescriptorPoolSize.calloc(1, stack);
-            poolSizes.get(0)
-                    .type(descriptorType)
-                    .descriptorCount(maxSets);
+            VkDescriptorPoolSize.Buffer poolSizes = VkDescriptorPoolSize.calloc(descriptorTypes.length, stack);
+            for (int i = 0; i < descriptorTypes.length; i++) {
+                poolSizes.get(i)
+                        .type(descriptorTypes[i])
+                        .descriptorCount(maxSets);
+            }
 
             VkDescriptorPoolCreateInfo createInfo = VkDescriptorPoolCreateInfo.calloc(stack)
                     .sType$Default()
@@ -52,7 +54,7 @@ public final class VulkanDescriptorPool implements Disposable {
     }
 
     /**
-     * Allocates {@code count} sets, all shaped like {@code setLayout}. They are empty: no buffer is attached yet.
+     * Allocates {@code count} sets, all shaped like {@code setLayout}. They are empty: no resource is attached yet.
      */
     public long[] allocateSets(VulkanDescriptorSetLayout setLayout, int count) {
         try (MemoryStack stack = MemoryStack.stackPush()) {

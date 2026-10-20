@@ -11,7 +11,7 @@ import java.nio.LongBuffer;
 
 import static org.lwjgl.vulkan.VK10.*;
 
-// The shape of a descriptor set: which slots exist, what type each holds and which stages read it. No buffers yet.
+// The shape of a descriptor set: which slots exist, what type each holds and which stages read it. No resources yet.
 public final class VulkanDescriptorSetLayout implements Disposable {
     private final VkDevice device;
     private final long handle;
@@ -21,23 +21,18 @@ public final class VulkanDescriptorSetLayout implements Disposable {
         this.handle = handle;
     }
 
-    /**
-     * A layout with a single slot.
-     *
-     * @param binding the slot number, matches {@code layout(binding = N)} in the shader
-     * @param descriptorType VK_DESCRIPTOR_TYPE_*
-     * @param stages shader stages that read the slot (VK_SHADER_STAGE_*)
-     */
-    public static VulkanDescriptorSetLayout create(VulkanLogicalDevice logicalDevice, int binding, int descriptorType, int stages) {
+    public static VulkanDescriptorSetLayout create(VulkanLogicalDevice logicalDevice, VulkanDescriptorBinding... slots) {
         VkDevice device = logicalDevice.getHandle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-            VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(1, stack);
-            bindings.get(0)
-                    .binding(binding)
-                    .descriptorType(descriptorType)
-                    .descriptorCount(1)
-                    .stageFlags(stages);
+            VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(slots.length, stack);
+            for (int i = 0; i < slots.length; i++) {
+                bindings.get(i)
+                        .binding(slots[i].binding())
+                        .descriptorType(slots[i].descriptorType())
+                        .descriptorCount(1)
+                        .stageFlags(slots[i].stages());
+            }
 
             VkDescriptorSetLayoutCreateInfo createInfo = VkDescriptorSetLayoutCreateInfo.calloc(stack)
                     .sType$Default()
