@@ -34,7 +34,7 @@ public final class VulkanSampler implements Disposable {
                     .anisotropyEnable(false)
                     .compareEnable(false)
                     .minLod(0.0f)
-                    .maxLod(0.0f) // Only mip level 0 exists for now
+                    .maxLod(VK_LOD_CLAMP_NONE) // The sampler is shared by all textures; the image view limits it to the levels each one has
                     .unnormalizedCoordinates(false);
 
             LongBuffer pSampler = stack.mallocLong(1);

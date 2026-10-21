@@ -23,12 +23,30 @@ public final class VulkanImageBarrier {
             long dstAccess,
             MemoryStack stack
     ) {
+        transition(commandBuffer, image, aspectMask, 0, 1, oldLayout, newLayout, srcStage, srcAccess, dstStage, dstAccess, stack);
+    }
+
+    // Only the mip levels baseMipLevel .. baseMipLevel + levelCount - 1 change layout; the others keep theirs
+    public static void transition(
+            VkCommandBuffer commandBuffer,
+            long image,
+            int aspectMask,
+            int baseMipLevel,
+            int levelCount,
+            int oldLayout,
+            int newLayout,
+            long srcStage,
+            long srcAccess,
+            long dstStage,
+            long dstAccess,
+            MemoryStack stack
+    ) {
 
         VkImageSubresourceRange.Buffer subresourceRange = VkImageSubresourceRange.calloc(1, stack);
         subresourceRange.get(0)
                 .aspectMask(aspectMask)
-                .baseMipLevel(0)
-                .levelCount(1)
+                .baseMipLevel(baseMipLevel)
+                .levelCount(levelCount)
                 .baseArrayLayer(0)
                 .layerCount(1);
 

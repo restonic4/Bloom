@@ -26,6 +26,10 @@ public final class VulkanImageView implements Disposable {
     }
 
     public static VulkanImageView create(VulkanLogicalDevice logicalDevice, long image, int format, int aspectMask) {
+        return create(logicalDevice, image, format, aspectMask, 1);
+    }
+
+    public static VulkanImageView create(VulkanLogicalDevice logicalDevice, long image, int format, int aspectMask, int mipLevels) {
         VkDevice device = logicalDevice.getHandle();
 
         try (MemoryStack stack = stackPush()) {
@@ -39,7 +43,7 @@ public final class VulkanImageView implements Disposable {
                     .subresourceRange(range -> range
                             .aspectMask(aspectMask)
                             .baseMipLevel(0)
-                            .levelCount(1)
+                            .levelCount(mipLevels)
                             .baseArrayLayer(0)
                             .layerCount(1)
                     );

@@ -66,8 +66,9 @@ public final class VulkanMaterialLibrary implements Disposable {
                 logicalDevice,
                 data.width(),
                 data.height(),
+                VulkanImage.mipLevelsFor(data.width(), data.height()),
                 VK_FORMAT_R8G8B8A8_SRGB,
-                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
                 VK_IMAGE_ASPECT_COLOR_BIT
         );
 

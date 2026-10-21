@@ -17,7 +17,7 @@ public final class VulkanDepthImage implements Disposable {
 
     public static VulkanDepthImage create(VulkanLogicalDevice logicalDevice, int width, int height) {
         return new VulkanDepthImage(VulkanImage.create(
-                logicalDevice, width, height, FORMAT,
+                logicalDevice, width, height, 1, FORMAT,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT
         ));
     }
