@@ -19,7 +19,8 @@ public final class TestScene {
 
     private final Texture checker = Texture.load("checker.png");
     private final Material cubeMaterial = new Material(checker);
-    private final Material planeMaterial = new Material(checker);
+    private final Texture grid = Texture.load("grid.png");
+    private final Material planeMaterial = new Material(grid);
 
     private final List<MeshInstance> instances = new ArrayList<>();
     private final List<MeshInstance> spinningInstances = new ArrayList<>();
