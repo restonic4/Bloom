@@ -275,25 +275,36 @@ class SceneTest {
     }
 
     @Test
-    void drawBatchesListDynamicThenStaticAndFollowTheScene() {
-        MeshInstance dynamic = add(cube, red);
-        MeshInstance fixed = addStatic(cube, red, 1, 0, 0);
-
-        List<DrawBatch> all = scene.drawBatches();
-        assertEquals(2, all.size());
-        assertEquals(List.of(dynamic), all.get(0).instances());
-        assertEquals(List.of(fixed), all.get(1).instances());
-
-        scene.remove(dynamic);
-        assertEquals(1, scene.drawBatches().size());
-        assertThrows(UnsupportedOperationException.class, () -> scene.drawBatches().clear());
-    }
-
-    @Test
     void chunkListsCannotBeModifiedFromOutside() {
         addStatic(cube, red, 1, 0, 0);
 
         assertThrows(UnsupportedOperationException.class, () -> scene.staticChunks().clear());
         assertThrows(UnsupportedOperationException.class, () -> chunkAt(0, 0, 0).batches().clear());
+    }
+
+    @Test
+    void staticVersionChangesOnlyWhenStaticInstancesAreAddedOrRemoved() {
+        long start = scene.staticVersion();
+
+        MeshInstance dynamic = add(cube, red);
+        scene.remove(dynamic);
+        assertEquals(start, scene.staticVersion());
+
+        MeshInstance fixed = addStatic(cube, red, 1, 0, 0);
+        long afterAdd = scene.staticVersion();
+        assertNotEquals(start, afterAdd);
+
+        scene.remove(fixed);
+        assertNotEquals(afterAdd, scene.staticVersion());
+    }
+
+    @Test
+    void dynamicInstanceCountLeavesOutStaticInstances() {
+        add(cube, red);
+        add(cube, blue);
+        addStatic(cube, red, 1, 0, 0);
+
+        assertEquals(2, scene.dynamicInstanceCount());
+        assertEquals(3, scene.instanceCount());
     }
 }

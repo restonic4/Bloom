@@ -2,7 +2,6 @@ package com.restonic4.bloom.core.scene;
 
 import com.restonic4.bloom.core.math.Transform;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,10 +25,7 @@ public final class Scene {
 
     private int instanceCount;
     private long version;
-
-    // Temporary flat view for backends that do not treat static chunks separately yet
-    private List<DrawBatch> drawBatches = List.of();
-    private long drawBatchesVersion = -1;
+    private long staticVersion;
 
     public Scene() {
         this(DEFAULT_CHUNK_SIZE);
@@ -54,6 +50,7 @@ public final class Scene {
             case STATIC -> {
                 transform.freeze();
                 chunks.computeIfAbsent(chunkOf(transform), StaticChunk::new).set().add(instance);
+                staticVersion++;
             }
         }
 
@@ -73,6 +70,7 @@ public final class Scene {
 
                 chunk.set().remove(instance);
                 if (chunk.set().isEmpty()) chunks.remove(coord);
+                staticVersion++;
             }
         }
 
@@ -99,23 +97,15 @@ public final class Scene {
     /** The non-empty chunks of static instances. The order can change when instances are added or removed. */
     public Collection<StaticChunk> staticChunks() { return chunksView; }
 
-    /** Dynamic batches, then the batches of every static chunk, as one list. Rebuilt only when the scene changed. */
-    public List<DrawBatch> drawBatches() {
-        if (drawBatchesVersion != version) {
-            List<DrawBatch> all = new ArrayList<>(dynamic.batches());
-            for (StaticChunk chunk : chunks.values()) all.addAll(chunk.batches());
-
-            drawBatches = Collections.unmodifiableList(all);
-            drawBatchesVersion = version;
-        }
-
-        return drawBatches;
-    }
-
     public int instanceCount() { return instanceCount; }
+
+    public int dynamicInstanceCount() { return dynamic.instanceCount(); }
 
     public float chunkSize() { return chunkSize; }
 
     /** Changes whenever an instance is added or removed, so a backend can tell its draw list is out of date. */
     public long version() { return version; }
+
+    /** Like {@link #version()}, but only for static instances: a backend that sees it unchanged can skip looking at the chunks. */
+    public long staticVersion() { return staticVersion; }
 }

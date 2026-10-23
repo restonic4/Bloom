@@ -7,7 +7,7 @@ import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.camera.VulkanClipSpace;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
-import com.restonic4.bloom.backends.vulkan.command.VulkanMeshDraw;
+import com.restonic4.bloom.backends.vulkan.command.VulkanInstanceGroup;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorBinding;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorPool;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorSetLayout;
@@ -53,7 +53,8 @@ import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK13.*;
 
 public class VulkanTest {
-    private static final boolean ENABLE_VALIDATION_LAYERS = Configuration.DEBUG.get(true);
+    //private static final boolean ENABLE_VALIDATION_LAYERS = Configuration.DEBUG.get(true);
+    private static final boolean ENABLE_VALIDATION_LAYERS = false;
     private static final int FRAMES_IN_FLIGHT = 2;
 
     // Set by the window resize event, read by the render loop.
@@ -297,7 +298,7 @@ public class VulkanTest {
             // Brings the slot's instance buffer up to date with the scene (free to overwrite or replace:
             // waitForFrameSlot() waited for the last frame that used it)
 
-            List<VulkanMeshDraw> draws = sceneResources.prepare(scene.renderScene(), frameIndex);
+            List<VulkanInstanceGroup> groups = sceneResources.prepare(scene.renderScene(), frameIndex, frameSync);
 
             float aspectRatio = (float) swapChain.getImageWidth() / swapChain.getImageHeight();
             VulkanClipSpace.viewProjection(scene.camera(), aspectRatio, viewProjection);
@@ -316,8 +317,7 @@ public class VulkanTest {
                     swapChain.getImageHeight(),
                     graphicsPipeline,
                     depthImage,
-                    draws,
-                    sceneResources.getInstanceBuffer(frameIndex),
+                    groups,
                     cameraSets[frameIndex],
                     scene.color(elapsedSeconds)
             );

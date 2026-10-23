@@ -29,8 +29,7 @@ public final class VulkanCommandBufferRecorder {
             int height,
             VulkanGraphicsPipeline pipeline,
             VulkanDepthImage depthImage,
-            List<VulkanMeshDraw> draws,
-            VulkanBuffer instanceBuffer,
+            List<VulkanInstanceGroup> groups,
             long descriptorSet,
             float[] color
     ) {
@@ -172,27 +171,29 @@ public final class VulkanCommandBufferRecorder {
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.getHandle(), 0, stack.longs(descriptorSet), null);
 
-            for (VulkanMeshDraw draw : draws) {
-                // Bind the material's descriptor set (texture) to set 1
+            for (VulkanInstanceGroup group : groups) {
+                for (VulkanMeshDraw draw : group.draws()) {
+                    // Bind the material's descriptor set (texture) to set 1
 
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.getHandle(), VulkanMaterialLibrary.SET_INDEX, stack.longs(draw.materialSet()), null);
+                    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.getHandle(), VulkanMaterialLibrary.SET_INDEX, stack.longs(draw.materialSet()), null);
 
-                // Bind the mesh's vertex buffer to binding 0 and the shared instance buffer to binding 1 of the pipeline's vertex input
+                    // Bind the mesh's vertex buffer to binding 0 and the shared instance buffer to binding 1 of the pipeline's vertex input
 
-                vkCmdBindVertexBuffers(
-                        commandBuffer,
-                        0,
-                        stack.longs(draw.vertexBuffer().getHandle(), instanceBuffer.getHandle()),
-                        stack.longs(0L, 0L)
-                );
+                    vkCmdBindVertexBuffers(
+                            commandBuffer,
+                            0,
+                            stack.longs(draw.vertexBuffer().getHandle(), group.instanceBuffer().getHandle()),
+                            stack.longs(0L, 0L)
+                    );
 
-                // Bind the index buffer: each index is a 32-bit unsigned int, reading starts at byte 0
+                    // Bind the index buffer: each index is a 32-bit unsigned int, reading starts at byte 0
 
-                vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer().getHandle(), 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdBindIndexBuffer(commandBuffer, draw.indexBuffer().getHandle(), 0, VK_INDEX_TYPE_UINT32);
 
-                // Draw the triangles described by the indices. firstInstance skips to this mesh's matrices in the instance buffer
+                    // Draw the triangles described by the indices. firstInstance skips to this mesh's matrices in the instance buffer
 
-                vkCmdDrawIndexed(commandBuffer, draw.indexCount(), draw.instanceCount(), 0, 0, draw.firstInstance());
+                    vkCmdDrawIndexed(commandBuffer, draw.indexCount(), draw.instanceCount(), 0, 0, draw.firstInstance());
+                }
             }
 
             // End dynamic rendering

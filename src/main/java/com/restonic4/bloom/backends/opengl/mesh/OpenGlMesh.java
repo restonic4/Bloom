@@ -16,6 +16,7 @@ import static org.lwjgl.opengl.GL33.glVertexAttribDivisor;
 
 public class OpenGlMesh implements Disposable {
     private static final int STRIDE = MeshData.FLOATS_PER_VERTEX * Float.BYTES;
+    private static final int MATRIX_BYTES = 16 * Float.BYTES;
 
     private final int vao;
 
@@ -82,18 +83,23 @@ public class OpenGlMesh implements Disposable {
         int vbo = glGenBuffers();
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-        glBufferData(GL_ARRAY_BUFFER, 16L * Float.BYTES, GL_STREAM_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, MATRIX_BYTES, GL_STREAM_DRAW);
 
-        // mat4 occupies 4 attribute locations: 4,5,6,7, OpenGL supports at max 4 floats, we need to split it.
+        pointInstanceAttributes(0);
+
+        return vbo;
+    }
+
+    // mat4 occupies 4 attribute locations: 4,5,6,7, OpenGL supports at max 4 floats, we need to split it.
+    // Reads from the buffer bound to GL_ARRAY_BUFFER, starting at byteOffset, and stays tied to it in the bound VAO
+    private static void pointInstanceAttributes(long byteOffset) {
         for (int i = 0; i < 4; i++) {
             int location = 4 + i;
 
             glEnableVertexAttribArray(location);
-            glVertexAttribPointer(location, 4, GL_FLOAT, false, 16 * Float.BYTES, i * 4L * Float.BYTES);
+            glVertexAttribPointer(location, 4, GL_FLOAT, false, MATRIX_BYTES, byteOffset + i * 4L * Float.BYTES);
             glVertexAttribDivisor(location, 1); // Change the attribute each instance, not per vertex
         }
-
-        return vbo;
     }
 
     public void bind() {
@@ -104,9 +110,18 @@ public class OpenGlMesh implements Disposable {
         glBindVertexArray(0);
     }
 
+    /** Fills this mesh's own instance buffer and makes the draw read from it. The mesh must be bound. */
     public void uploadInstances(FloatBuffer data) {
         glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
         glBufferData(GL_ARRAY_BUFFER, data, GL_STREAM_DRAW);
+        pointInstanceAttributes(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    /** Makes the draw read matrices from another buffer, starting at the given instance. The mesh must be bound. */
+    public void useInstanceBuffer(int vbo, int firstInstance) {
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        pointInstanceAttributes((long) firstInstance * MATRIX_BYTES);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 

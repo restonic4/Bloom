@@ -42,7 +42,7 @@ public class OpenGlTest {
             glClearColor(0.02f, 0.02f, 0.03f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            renderer.render(scene.camera(), window, scene.renderScene().drawBatches(), scene.color(time.elapsedSeconds()));
+            renderer.render(scene.camera(), window, scene.renderScene(), scene.color(time.elapsedSeconds()));
 
             long swapStart = profiler.start();
             glfwSwapBuffers(window.getHandle());

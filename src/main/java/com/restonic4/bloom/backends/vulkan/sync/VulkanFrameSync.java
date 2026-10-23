@@ -147,6 +147,22 @@ public final class VulkanFrameSync implements Disposable {
     public long getTimelineSemaphore() { return timelineSemaphore; }
     public long nextTimelineValue() { return lastSubmittedTimelineValue + 1; }
 
+    public long getLastSubmittedValue() { return lastSubmittedTimelineValue; }
+
+    /** The newest timeline value the GPU has reached: every frame up to it is finished. */
+    public long getCompletedValue() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            LongBuffer pValue = stack.mallocLong(1);
+
+            int result = vkGetSemaphoreCounterValue(device, timelineSemaphore, pValue);
+            if (result != VK_SUCCESS) {
+                throw new IllegalStateException("Failed to read the graphics timeline: " + result);
+            }
+
+            return pValue.get(0);
+        }
+    }
+
     public void markSubmitted(long value) {
         if (value != lastSubmittedTimelineValue + 1) {
             throw new IllegalArgumentException("Timeline values must increase by one");

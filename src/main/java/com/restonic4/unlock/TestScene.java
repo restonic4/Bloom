@@ -14,6 +14,7 @@ import com.restonic4.bloom.core.scene.FlyCameraController;
 import com.restonic4.bloom.core.scene.Material;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
+import com.restonic4.bloom.core.scene.Mobility;
 import com.restonic4.bloom.core.scene.Scene;
 import com.restonic4.bloom.core.scene.Texture;
 import com.restonic4.bloom.core.scene.WrapMode;
@@ -34,7 +35,8 @@ import java.util.Random;
 public final class TestScene {
     private static final float SPIN_SPEED = 1.0f;
     private static final String TOGGLE_SPIN = "toggle-spin";
-    private static final String SPAWN_BIG_STRESS = "spawn-big-stress";
+    private static final String SPAWN_BIG_STATIC = "spawn-big-static";
+    private static final String SPAWN_BIG_DYNAMIC = "spawn-big-dynamic";
     private static final float SPAWN_DISTANCE = 4.0f;
     private static final int STRESS_COUNT = 1000;
     private static final int BIG_STRESS_COUNT = 400_000;
@@ -67,7 +69,8 @@ public final class TestScene {
         this.window = window;
         this.profileLog = new ProfileLog(Path.of("build", "profile", label + "-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".log"));
         window.getInput().register(TOGGLE_SPIN, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.K, Key.O));
-        window.getInput().register(SPAWN_BIG_STRESS, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.R));
+        window.getInput().register(SPAWN_BIG_STATIC, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.R));
+        window.getInput().register(SPAWN_BIG_DYNAMIC, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.Y));
 
         spinningInstances.add(addCube(0, 0, -10, cubeMaterial));
         spinningInstances.add(addCube(5, 0, -10, cubeMaterial));
@@ -150,16 +153,18 @@ public final class TestScene {
         }
     }
 
-    // E: one cube in front of the camera. Q: remove the last spawned. R: a thousand random cubes, Ctrl+Alt+R: 400 thousand. C: remove all spawned
+    // E: one cube in front of the camera. Q: remove the last spawned. R: a thousand random dynamic cubes, Ctrl+Alt+R: 400 thousand static, Ctrl+Alt+Y: 400 thousand dynamic. C: remove all spawned
     private void updateSpawning(Input input) {
         if (input.justPressed(Key.E)) spawnInFrontOfCamera();
 
         if (input.justPressed(Key.Q) && !spawned.isEmpty()) renderScene.remove(spawned.removeLast());
 
-        if (input.justPressed(SPAWN_BIG_STRESS)) {
-            spawnRandom(BIG_STRESS_COUNT);
+        if (input.justPressed(SPAWN_BIG_STATIC)) {
+            spawnRandom(BIG_STRESS_COUNT, Mobility.STATIC);
+        } else if (input.justPressed(SPAWN_BIG_DYNAMIC)) {
+            spawnRandom(BIG_STRESS_COUNT, Mobility.DYNAMIC);
         } else if (input.justPressed(Key.R)) {
-            spawnRandom(STRESS_COUNT);
+            spawnRandom(STRESS_COUNT, Mobility.DYNAMIC);
         }
 
         if (input.justPressed(Key.C)) {
@@ -172,19 +177,19 @@ public final class TestScene {
         camera.getTransform().getRotation(scratchRotation).transform(scratchForward.set(0, 0, -1));
         camera.getTransform().getPosition(scratchPosition).fma(SPAWN_DISTANCE, scratchForward);
 
-        spawn(scratchPosition.x, scratchPosition.y, scratchPosition.z);
+        spawn(scratchPosition.x, scratchPosition.y, scratchPosition.z, Mobility.DYNAMIC);
     }
 
-    private void spawnRandom(int count) {
-        for (int i = 0; i < count; i++) spawn(randomCoordinate(), randomCoordinate(), randomCoordinate());
+    private void spawnRandom(int count, Mobility mobility) {
+        for (int i = 0; i < count; i++) spawn(randomCoordinate(), randomCoordinate(), randomCoordinate(), mobility);
     }
 
     private float randomCoordinate() {
         return (random.nextFloat() - 0.5f) * STRESS_RANGE;
     }
 
-    private void spawn(float x, float y, float z) {
-        spawned.add(addCube(x, y, z, cubeMaterial));
+    private void spawn(float x, float y, float z, Mobility mobility) {
+        spawned.add(renderScene.add(mesh, cubeMaterial, new Transform().setPosition(x, y, z), mobility));
     }
 
     public void showStats(Window window, FrameStats stats, FrameProfiler profiler, double delta) {
