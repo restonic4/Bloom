@@ -7,6 +7,7 @@ import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.camera.VulkanClipSpace;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
+import com.restonic4.bloom.backends.vulkan.command.VulkanMeshBuffers;
 import com.restonic4.bloom.backends.vulkan.command.VulkanMeshDraw;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorBinding;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorPool;
@@ -33,6 +34,7 @@ import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
 import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.math.Time;
+import com.restonic4.bloom.core.scene.DrawBatch;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
 import org.joml.Matrix4f;
@@ -44,7 +46,9 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
@@ -136,21 +140,26 @@ public class VulkanTest {
 
         TestScene scene = new TestScene(window);
 
-        // All instance matrices live in one buffer: the cubes first, then the plane
-        int cubeCount = scene.instances().size();
-        int planeCount = scene.planeInstances().size();
+        // All instance matrices live in one buffer, batch after batch: each draw takes the slice of its batch
+        int instanceCount = scene.instances().size();
 
-        List<VulkanMeshDraw> draws = List.of(
-                uploadMesh(logicalDevice, commandPool, scene.mesh(), 0, cubeCount, materials.setFor(scene.cubeMaterial())),
-                uploadMesh(logicalDevice, commandPool, scene.planeMesh(), cubeCount, planeCount, materials.setFor(scene.planeMaterial()))
-        );
+        Map<MeshData, VulkanMeshBuffers> meshes = new HashMap<>();
+        List<VulkanMeshDraw> draws = new ArrayList<>();
+        int firstInstance = 0;
+        for (DrawBatch batch : scene.batches()) {
+            VulkanMeshBuffers buffers = meshes.computeIfAbsent(batch.mesh(), mesh -> uploadMesh(logicalDevice, commandPool, mesh));
+            int batchSize = batch.instances().size();
+
+            draws.add(new VulkanMeshDraw(buffers.vertexBuffer(), buffers.indexBuffer(), buffers.indexCount(), firstInstance, batchSize, materials.setFor(batch.material())));
+            firstInstance += batchSize;
+        }
 
         // One instance buffer per frame slot: the CPU rewrites it every frame while the GPU may still read the other slot's
         List<VulkanBuffer> instanceBuffers = new ArrayList<>(FRAMES_IN_FLIGHT);
         for (int i = 0; i < FRAMES_IN_FLIGHT; i++) {
             instanceBuffers.add(VulkanBuffer.create(
                     logicalDevice,
-                    (long) (cubeCount + planeCount) * 16 * Float.BYTES,
+                    (long) instanceCount * 16 * Float.BYTES,
                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
             ));
@@ -210,9 +219,9 @@ public class VulkanTest {
 
         instanceBuffers.forEach(VulkanBuffer::dispose);
         cameraBuffers.forEach(VulkanBuffer::dispose);
-        for (VulkanMeshDraw draw : draws) {
-            draw.indexBuffer().dispose();
-            draw.vertexBuffer().dispose();
+        for (VulkanMeshBuffers buffers : meshes.values()) {
+            buffers.indexBuffer().dispose();
+            buffers.vertexBuffer().dispose();
         }
         depthImage.dispose();
 
@@ -239,7 +248,7 @@ public class VulkanTest {
     }
 
     // Mesh buffers are device-local, filled through staging
-    private static VulkanMeshDraw uploadMesh(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, MeshData mesh, int firstInstance, int instanceCount, long materialSet) {
+    private static VulkanMeshBuffers uploadMesh(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, MeshData mesh) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             float[] vertices = mesh.interleavedVertices();
             ByteBuffer vertexData = stack.malloc(vertices.length * Float.BYTES);
@@ -250,7 +259,7 @@ public class VulkanTest {
             indexData.asIntBuffer().put(mesh.indices());
             VulkanBuffer indexBuffer = VulkanBuffer.createDeviceLocal(logicalDevice, commandPool, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-            return new VulkanMeshDraw(vertexBuffer, indexBuffer, mesh.indexCount(), firstInstance, instanceCount, materialSet);
+            return new VulkanMeshBuffers(vertexBuffer, indexBuffer, mesh.indexCount());
         }
     }
 
@@ -327,12 +336,13 @@ public class VulkanTest {
             // Write this frame's model matrices into the slot's instance buffer
             // (free to overwrite: waitForFrameSlot() waited for the last frame that used it)
 
-            List<MeshInstance> instances = new ArrayList<>(scene.instances());
-            instances.addAll(scene.planeInstances());
-            ByteBuffer instanceData = stack.malloc(instances.size() * 16 * Float.BYTES);
+            ByteBuffer instanceData = stack.malloc(scene.instances().size() * 16 * Float.BYTES);
             FloatBuffer instanceFloats = instanceData.asFloatBuffer();
-            for (int i = 0; i < instances.size(); i++) {
-                instances.get(i).getTransform().getModelMatrix().get(i * 16, instanceFloats);
+            int instanceIndex = 0;
+            for (DrawBatch batch : scene.batches()) {
+                for (MeshInstance instance : batch.instances()) {
+                    instance.getTransform().getModelMatrix().get(instanceIndex++ * 16, instanceFloats);
+                }
             }
             instanceBuffers.get(frameIndex).write(instanceData);
 

@@ -7,6 +7,7 @@ import com.restonic4.bloom.core.input.Key;
 import com.restonic4.bloom.core.input.MouseButton;
 import com.restonic4.bloom.core.math.Transform;
 import com.restonic4.bloom.core.scene.Camera;
+import com.restonic4.bloom.core.scene.DrawBatch;
 import com.restonic4.bloom.core.scene.FlyCameraController;
 import com.restonic4.bloom.core.scene.Material;
 import com.restonic4.bloom.core.scene.MeshData;
@@ -36,23 +37,26 @@ public final class TestScene {
 
     private final List<MeshInstance> instances = new ArrayList<>();
     private final List<MeshInstance> spinningInstances = new ArrayList<>();
-    private final List<MeshInstance> planeInstances = new ArrayList<>();
+    private final List<DrawBatch> batches;
 
     public TestScene(Window window) {
         this.window = window;
         window.getInput().register(TOGGLE_SPIN, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.K, Key.O));
 
-        spinningInstances.add(addCube(0, 0, -10));
-        spinningInstances.add(addCube(5, 0, -10));
-        spinningInstances.add(addCube(-5, 0, -10));
-        spinningInstances.add(addCube(0, 5, -10));
+        spinningInstances.add(addCube(0, 0, -10, cubeMaterial));
+        spinningInstances.add(addCube(5, 0, -10, cubeMaterial));
+        spinningInstances.add(addCube(-5, 0, -10, cubeMaterial));
+        spinningInstances.add(addCube(0, 5, -10, planeMaterial));
 
         // Behind the cube at (5, 0, -10), offset so it is only partly hidden: shows the depth test
-        addCube(7.5f, 1.5f, -14);
+        addCube(7.5f, 1.5f, -14, cubeMaterial);
 
         // Below the centre cube. One-sided: only its top is a front face, so it vanishes when seen from below or with the wrong winding
-        planeInstances.add(new MeshInstance(planeMesh, new Transform().setPosition(0, -3, -10)));
-        planeInstances.add(new MeshInstance(planeMesh, new Transform().setPosition(0, 7, -20).setRotationXYZDegrees(90, 0, 0)));
+        addInstance(planeMesh, planeMaterial, new Transform().setPosition(0, -3, -10));
+        addInstance(planeMesh, planeMaterial, new Transform().setPosition(0, 7, -20).setRotationXYZDegrees(90, 0, 0));
+
+        // The scene does not change shape, so group once
+        batches = DrawBatch.group(instances);
     }
 
     // A flat square on the XZ plane, facing up (+Y). Vertices go counter-clockwise when seen from above (OpenGL convention)
@@ -86,8 +90,12 @@ public final class TestScene {
         return new MeshData(vertices, normals, tangents, uvs, indices);
     }
 
-    private MeshInstance addCube(float x, float y, float z) {
-        MeshInstance instance = new MeshInstance(mesh, new Transform().setPosition(x, y, z));
+    private MeshInstance addCube(float x, float y, float z, Material material) {
+        return addInstance(mesh, material, new Transform().setPosition(x, y, z));
+    }
+
+    private MeshInstance addInstance(MeshData mesh, Material material, Transform transform) {
+        MeshInstance instance = new MeshInstance(mesh, material, transform);
         instances.add(instance);
         return instance;
     }
@@ -131,11 +139,7 @@ public final class TestScene {
         };
     }
 
-    public MeshData mesh() { return mesh; }
-    public MeshData planeMesh() { return planeMesh; }
-    public Material cubeMaterial() { return cubeMaterial; }
-    public Material planeMaterial() { return planeMaterial; }
     public Camera camera() { return camera; }
     public List<MeshInstance> instances() { return instances; }
-    public List<MeshInstance> planeInstances() { return planeInstances; }
+    public List<DrawBatch> batches() { return batches; }
 }

@@ -1,7 +1,6 @@
 package com.restonic4.unlock;
 
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
-import com.restonic4.bloom.backends.opengl.mesh.OpenGlMesh;
 import com.restonic4.bloom.backends.opengl.rendering.OpenGlRenderer;
 import com.restonic4.bloom.core.graphics.GraphicsApi;
 import com.restonic4.bloom.core.math.Time;
@@ -15,8 +14,6 @@ public class OpenGlTest {
         GlfwWindow window = new GlfwWindow(GraphicsApi.OPENGL, 500, 500);
 
         TestScene scene = new TestScene(window);
-        OpenGlMesh mesh = new OpenGlMesh(scene.mesh());
-        OpenGlMesh planeMesh = new OpenGlMesh(scene.planeMesh());
         OpenGlRenderer renderer = new OpenGlRenderer();
 
         glEnable(GL_DEPTH_TEST);
@@ -38,15 +35,12 @@ public class OpenGlTest {
             glClearColor(0.02f, 0.02f, 0.03f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            renderer.render(scene.camera(), window, mesh, scene.cubeMaterial(), scene.instances(), scene.color(time.elapsedSeconds()));
-            renderer.render(scene.camera(), window, planeMesh, scene.planeMaterial(), scene.planeInstances(), scene.color(time.elapsedSeconds()));
+            renderer.render(scene.camera(), window, scene.batches(), scene.color(time.elapsedSeconds()));
 
             glfwSwapBuffers(window.getHandle());
         }
 
         renderer.dispose();
-        planeMesh.dispose();
-        mesh.dispose();
         window.dispose();
         glfwTerminate();
     }
