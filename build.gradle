@@ -56,6 +56,7 @@ dependencies {
     implementation "org.lwjgl:lwjgl-assimp"
     implementation "org.lwjgl:lwjgl-shaderc"
     implementation "org.lwjgl:lwjgl-stb"
+    implementation "org.lwjgl:lwjgl-vma"
 
     runtimeOnly "org.lwjgl:lwjgl::${lwjglNatives}"
     runtimeOnly "org.lwjgl:lwjgl-glfw::${lwjglNatives}"
@@ -64,6 +65,7 @@ dependencies {
     runtimeOnly "org.lwjgl:lwjgl-assimp::${lwjglNatives}"
     runtimeOnly "org.lwjgl:lwjgl-shaderc::${lwjglNatives}"
     runtimeOnly "org.lwjgl:lwjgl-stb::${lwjglNatives}"
+    runtimeOnly "org.lwjgl:lwjgl-vma::${lwjglNatives}"
 
     implementation "org.joml:joml:1.10.8"
 

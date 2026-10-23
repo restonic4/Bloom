@@ -18,6 +18,7 @@ import com.restonic4.bloom.backends.vulkan.image.VulkanDepthImage;
 import com.restonic4.bloom.backends.vulkan.device.VulkanPhysicalDevice;
 import com.restonic4.bloom.backends.vulkan.instance.VulkanInstance;
 import com.restonic4.bloom.backends.vulkan.material.VulkanMaterialLibrary;
+import com.restonic4.bloom.backends.vulkan.memory.VulkanMemoryUsage;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
 import com.restonic4.bloom.backends.vulkan.shader.VulkanGlslCompiler;
@@ -131,7 +132,7 @@ public class VulkanTest {
                     logicalDevice,
                     cameraBufferSize,
                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                    VulkanMemoryUsage.HOST_WRITABLE
             );
             cameraBuffers.add(cameraBuffer);
             VulkanDescriptorWriter.writeUniformBuffer(logicalDevice, cameraSets[i], 0, cameraBuffer, cameraBufferSize);
@@ -161,7 +162,7 @@ public class VulkanTest {
                     logicalDevice,
                     (long) instanceCount * 16 * Float.BYTES,
                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                    VulkanMemoryUsage.HOST_WRITABLE
             ));
         }
 

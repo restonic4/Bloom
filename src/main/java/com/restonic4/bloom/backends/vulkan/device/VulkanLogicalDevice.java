@@ -1,5 +1,6 @@
 package com.restonic4.bloom.backends.vulkan.device;
 
+import com.restonic4.bloom.backends.vulkan.memory.VulkanAllocator;
 import com.restonic4.bloom.core.Disposable;
 import com.restonic4.bloom.core.graphics.GraphicsSettings;
 import org.lwjgl.PointerBuffer;
@@ -21,6 +22,7 @@ public class VulkanLogicalDevice implements Disposable {
     private final int graphicsQueueFamilyIndex;
     private final int presentQueueFamilyIndex;
 
+    private final VulkanAllocator allocator;
     private final float maxAnisotropy;
 
     private VulkanLogicalDevice(
@@ -29,6 +31,7 @@ public class VulkanLogicalDevice implements Disposable {
             VkQueue presentQueue,
             int graphicsQueueFamilyIndex,
             int presentQueueFamilyIndex,
+            VulkanAllocator allocator,
             float maxAnisotropy
     ) {
         this.handle = handle;
@@ -36,6 +39,7 @@ public class VulkanLogicalDevice implements Disposable {
         this.presentQueue = presentQueue;
         this.graphicsQueueFamilyIndex = graphicsQueueFamilyIndex;
         this.presentQueueFamilyIndex = presentQueueFamilyIndex;
+        this.allocator = allocator;
         this.maxAnisotropy = maxAnisotropy;
     }
 
@@ -124,11 +128,15 @@ public class VulkanLogicalDevice implements Disposable {
 
             VkQueue presentQueue = new VkQueue(pPresentQueue.get(0), device);
 
-            return new VulkanLogicalDevice(device, graphicsQueue, presentQueue, indices.graphics(), indices.present(), maxAnisotropy);
+            VulkanAllocator allocator = VulkanAllocator.create(physicalDevice.getHandle().getInstance(), physicalDevice.getHandle(), device);
+
+            return new VulkanLogicalDevice(device, graphicsQueue, presentQueue, indices.graphics(), indices.present(), allocator, maxAnisotropy);
         }
     }
 
     public VkDevice getHandle() { return handle; }
+
+    public VulkanAllocator getAllocator() { return allocator; }
 
     public VkQueue getGraphicsQueue() { return graphicsQueue; }
     public VkQueue getPresentQueue() { return presentQueue; }
@@ -141,6 +149,7 @@ public class VulkanLogicalDevice implements Disposable {
 
     @Override
     public void dispose() {
+        allocator.dispose();
         vkDestroyDevice(handle, null);
     }
 }

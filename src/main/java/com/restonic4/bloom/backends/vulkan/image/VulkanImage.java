@@ -3,36 +3,38 @@ package com.restonic4.bloom.backends.vulkan.image;
 import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
 import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
-import com.restonic4.bloom.backends.vulkan.memory.VulkanMemory;
 import com.restonic4.bloom.backends.vulkan.swapchain.VulkanImageView;
 import com.restonic4.bloom.core.Disposable;
+import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.util.vma.VmaAllocationCreateInfo;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 
+import static org.lwjgl.util.vma.Vma.*;
 import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VK13.*;
 
 public final class VulkanImage implements Disposable {
-    private final VkDevice device;
+    private final long allocator;
     private final int width;
     private final int height;
     private final int mipLevels;
     private final int format;
     private final long imageHandle;
-    private final long memory;
+    private final long allocation;
     private final VulkanImageView view;
 
-    private VulkanImage(VkDevice device, int width, int height, int mipLevels, int format, long imageHandle, long memory, VulkanImageView view) {
-        this.device = device;
+    private VulkanImage(long allocator, int width, int height, int mipLevels, int format, long imageHandle, long allocation, VulkanImageView view) {
+        this.allocator = allocator;
         this.width = width;
         this.height = height;
         this.mipLevels = mipLevels;
         this.format = format;
         this.imageHandle = imageHandle;
-        this.memory = memory;
+        this.allocation = allocation;
         this.view = view;
     }
 
@@ -44,12 +46,9 @@ public final class VulkanImage implements Disposable {
             throw new IllegalArgumentException("Mip level count must be between 1 and " + mipLevelsFor(width, height));
         }
 
-        VkDevice device = logicalDevice.getHandle();
+        long allocator = logicalDevice.getAllocator().getHandle();
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
-
-            // Image: only a handle with a size, format and usage, no memory behind it yet
-
             VkImageCreateInfo imageInfo = VkImageCreateInfo.calloc(stack)
                     .sType$Default()
                     .imageType(VK_IMAGE_TYPE_2D)
@@ -63,60 +62,30 @@ public final class VulkanImage implements Disposable {
                     .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
             imageInfo.extent().width(width).height(height).depth(1);
 
-            LongBuffer pImage = stack.mallocLong(1);
+            // The allocator creates the image, finds a memory type for it, allocates and binds, all in one call
+            VmaAllocationCreateInfo allocationInfo = VmaAllocationCreateInfo.calloc(stack)
+                    .usage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
 
-            int result = vkCreateImage(device, imageInfo, null, pImage);
+            LongBuffer pImage = stack.mallocLong(1);
+            PointerBuffer pAllocation = stack.mallocPointer(1);
+
+            int result = vmaCreateImage(allocator, imageInfo, allocationInfo, pImage, pAllocation, null);
             if (result != VK_SUCCESS) {
                 throw new IllegalStateException("Failed to create image: " + result);
             }
 
             long image = pImage.get(0);
-
-            // Memory: the same create -> requirements -> allocate -> bind steps as a buffer, in GPU-only memory
-
-            VkMemoryRequirements requirements = VkMemoryRequirements.malloc(stack);
-            vkGetImageMemoryRequirements(device, image, requirements);
-
-            int memoryTypeIndex;
-            try {
-                memoryTypeIndex = VulkanMemory.findMemoryType(device.getPhysicalDevice(), requirements.memoryTypeBits(), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, stack);
-            } catch (RuntimeException e) {
-                vkDestroyImage(device, image, null);
-                throw e;
-            }
-
-            VkMemoryAllocateInfo allocateInfo = VkMemoryAllocateInfo.calloc(stack)
-                    .sType$Default()
-                    .allocationSize(requirements.size())
-                    .memoryTypeIndex(memoryTypeIndex);
-
-            LongBuffer pMemory = stack.mallocLong(1);
-
-            result = vkAllocateMemory(device, allocateInfo, null, pMemory);
-            if (result != VK_SUCCESS) {
-                vkDestroyImage(device, image, null);
-                throw new IllegalStateException("Failed to allocate image memory: " + result);
-            }
-
-            long memory = pMemory.get(0);
-
-            result = vkBindImageMemory(device, image, memory, 0);
-            if (result != VK_SUCCESS) {
-                vkFreeMemory(device, memory, null);
-                vkDestroyImage(device, image, null);
-                throw new IllegalStateException("Failed to bind image memory: " + result);
-            }
+            long allocation = pAllocation.get(0);
 
             VulkanImageView view;
             try {
                 view = VulkanImageView.create(logicalDevice, image, format, aspectMask, mipLevels);
             } catch (RuntimeException e) {
-                vkFreeMemory(device, memory, null);
-                vkDestroyImage(device, image, null);
+                vmaDestroyImage(allocator, image, allocation);
                 throw e;
             }
 
-            return new VulkanImage(device, width, height, mipLevels, format, image, memory, view);
+            return new VulkanImage(allocator, width, height, mipLevels, format, image, allocation, view);
         }
     }
 
@@ -130,7 +99,7 @@ public final class VulkanImage implements Disposable {
     // Blocks until the GPU is done (see VulkanCommandPool.submitOneTime), so use it for startup data.
     public void upload(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, ByteBuffer pixels) {
         if (mipLevels > 1) {
-            requireLinearBlit();
+            requireLinearBlit(logicalDevice);
         }
 
         VulkanBuffer staging = VulkanBuffer.createHostVisible(logicalDevice, pixels, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
@@ -221,10 +190,10 @@ public final class VulkanImage implements Disposable {
         }
     }
 
-    private void requireLinearBlit() {
+    private void requireLinearBlit(VulkanLogicalDevice logicalDevice) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkFormatProperties properties = VkFormatProperties.malloc(stack);
-            vkGetPhysicalDeviceFormatProperties(device.getPhysicalDevice(), format, properties);
+            vkGetPhysicalDeviceFormatProperties(logicalDevice.getHandle().getPhysicalDevice(), format, properties);
 
             int required = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
             if ((properties.optimalTilingFeatures() & required) != required) {
@@ -239,7 +208,6 @@ public final class VulkanImage implements Disposable {
     @Override
     public void dispose() {
         view.dispose();
-        vkDestroyImage(device, imageHandle, null);
-        vkFreeMemory(device, memory, null);
+        vmaDestroyImage(allocator, imageHandle, allocation);
     }
 }
