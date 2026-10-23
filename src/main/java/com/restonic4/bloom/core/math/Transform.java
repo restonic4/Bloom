@@ -117,19 +117,19 @@ public class Transform {
         return this;
     }
 
-    public Transform setRotationXYZ(float angleX, float angleY, float angleZ) {
+    public Transform setRotationXYZRadians(float angleX, float angleY, float angleZ) {
         rotation.rotationXYZ(angleX, angleY, angleZ);
         markDirty();
         return this;
     }
 
-    public Transform setRotationAxis(float angle, float axisX, float axisY, float axisZ) {
+    public Transform setRotationAxisRadians(float angle, float axisX, float axisY, float axisZ) {
         rotation.rotationAxis(angle, axisX, axisY, axisZ);
         markDirty();
         return this;
     }
 
-    public Transform rotateX(float angle) {
+    public Transform rotateXRadians(float angle) {
         if (angle != 0.0f) {
             rotation.rotateX(angle);
             markDirty();
@@ -138,7 +138,7 @@ public class Transform {
         return this;
     }
 
-    public Transform rotateY(float angle) {
+    public Transform rotateYRadians(float angle) {
         if (angle != 0.0f) {
             rotation.rotateY(angle);
             markDirty();
@@ -147,7 +147,7 @@ public class Transform {
         return this;
     }
 
-    public Transform rotateZ(float angle) {
+    public Transform rotateZRadians(float angle) {
         if (angle != 0.0f) {
             rotation.rotateZ(angle);
             markDirty();
@@ -156,13 +156,29 @@ public class Transform {
         return this;
     }
 
-    public Transform rotateXYZ(float angleX, float angleY, float angleZ) {
+    public Transform rotateXYZRadians(float angleX, float angleY, float angleZ) {
         if (angleX != 0.0f || angleY != 0.0f || angleZ != 0.0f) {
             rotation.rotateXYZ(angleX, angleY, angleZ);
             markDirty();
         }
 
         return this;
+    }
+
+    public Transform setRotationXYZDegrees(float angleX, float angleY, float angleZ) {
+        return setRotationXYZRadians(radians(angleX), radians(angleY), radians(angleZ));
+    }
+
+    public Transform setRotationAxisDegrees(float angle, float axisX, float axisY, float axisZ) {
+        return setRotationAxisRadians(radians(angle), axisX, axisY, axisZ);
+    }
+
+    public Transform rotateXDegrees(float angle) { return rotateXRadians(radians(angle)); }
+    public Transform rotateYDegrees(float angle) { return rotateYRadians(radians(angle)); }
+    public Transform rotateZDegrees(float angle) { return rotateZRadians(radians(angle)); }
+
+    public Transform rotateXYZDegrees(float angleX, float angleY, float angleZ) {
+        return rotateXYZRadians(radians(angleX), radians(angleY), radians(angleZ));
     }
 
     public Transform rotate(Quaternionfc delta) {
@@ -211,7 +227,11 @@ public class Transform {
     public float getScaleZ() { return scaleZ; }
 
     public Quaternionf getRotation(Quaternionf dest) { return dest.set(rotation); }
-    public Vector3f getEulerAngles(Vector3f dest) { return rotation.getEulerAnglesXYZ(dest); }
+    public Vector3f getEulerAnglesRadians(Vector3f dest) { return rotation.getEulerAnglesXYZ(dest); }
+    public Vector3f getEulerAnglesDegrees(Vector3f dest) {
+        rotation.getEulerAnglesXYZ(dest);
+        return dest.set(degrees(dest.x), degrees(dest.y), degrees(dest.z));
+    }
 
     public Matrix4fc getModelMatrix() {
         if (dirty) {
@@ -225,6 +245,9 @@ public class Transform {
 
         return modelMatrix;
     }
+
+    private static float radians(float degrees) { return (float) java.lang.Math.toRadians(degrees); }
+    private static float degrees(float radians) { return (float) java.lang.Math.toDegrees(radians); }
 
     public boolean isDirty() { return dirty; }
     public long getVersion() { return version; }

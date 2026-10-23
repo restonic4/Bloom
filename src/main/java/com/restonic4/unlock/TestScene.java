@@ -51,7 +51,7 @@ public final class TestScene {
 
         // Below the centre cube. One-sided: only its top is a front face, so it vanishes when seen from below or with the wrong winding
         planeInstances.add(new MeshInstance(planeMesh, new Transform().setPosition(0, -3, -10)));
-        planeInstances.add(new MeshInstance(planeMesh, new Transform().setPosition(0, 0, -10).setRotationXYZ(90, 0, 0)));
+        planeInstances.add(new MeshInstance(planeMesh, new Transform().setPosition(0, 7, -20).setRotationXYZDegrees(90, 0, 0)));
     }
 
     // A flat square on the XZ plane, facing up (+Y). Vertices go counter-clockwise when seen from above (OpenGL convention)
@@ -102,7 +102,7 @@ public final class TestScene {
         float angle = (float) (SPIN_SPEED * delta);
 
         for (MeshInstance instance : spinningInstances) {
-            instance.getTransform().rotateXYZ(angle, angle, angle);
+            instance.getTransform().rotateXYZRadians(angle, angle, angle);
         }
     }
 

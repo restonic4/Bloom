@@ -53,13 +53,17 @@ public class Camera {
         }
     }
 
-    public void setFieldOfView(float fieldOfView) {
+    public void setFieldOfViewRadians(float fieldOfView) {
         fieldOfView = Math.clamp(fieldOfView, MIN_FOV, MAX_FOV);
 
         if (this.fieldOfView != fieldOfView) {
             this.fieldOfView = fieldOfView;
             projectionDirty = true;
         }
+    }
+
+    public void setFieldOfViewDegrees(float fieldOfView) {
+        setFieldOfViewRadians((float) Math.toRadians(fieldOfView));
     }
 
     public void setNearPlane(float nearPlane) {
@@ -140,7 +144,8 @@ public class Camera {
     public float getNearPlane() { return nearPlane; }
     public float getFarPlane() { return farPlane; }
 
-    public float getFieldOfView() { return fieldOfView; }
+    public float getFieldOfViewRadians() { return fieldOfView; }
+    public float getFieldOfViewDegrees() { return (float) Math.toDegrees(fieldOfView); }
     public float getOrthographicHeight() { return orthographicHeight; }
 
     public boolean isDirty() { return projectionDirty || !transform.isSameVersion(lastTransformVersion); }
