@@ -12,6 +12,7 @@ import com.restonic4.bloom.core.scene.Material;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
 import com.restonic4.bloom.core.scene.Texture;
+import com.restonic4.bloom.core.scene.WrapMode;
 import com.restonic4.bloom.core.window.Window;
 
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ public final class TestScene {
     private static final String TOGGLE_SPIN = "toggle-spin";
 
     private final MeshData mesh = MeshData.load("Cube.glb").getFirst();
-    private final MeshData planeMesh = createPlane(10.0f);
+    private final MeshData planeMesh = createPlane(10.0f, 10.0f);
     private final Camera camera = new Camera();
     private final FlyCameraController flyCamera = new FlyCameraController();
     private final Window window;
@@ -30,7 +31,7 @@ public final class TestScene {
 
     private final Texture checker = Texture.load("checker.png");
     private final Material cubeMaterial = new Material(checker);
-    private final Texture grid = Texture.load("grid.png");
+    private final Texture grid = Texture.load("grid.png", WrapMode.REPEAT);
     private final Material planeMaterial = new Material(grid);
 
     private final List<MeshInstance> instances = new ArrayList<>();
@@ -55,7 +56,7 @@ public final class TestScene {
     }
 
     // A flat square on the XZ plane, facing up (+Y). Vertices go counter-clockwise when seen from above (OpenGL convention)
-    private static MeshData createPlane(float halfSize) {
+    private static MeshData createPlane(float halfSize, float uvRepeat) {
         float[] vertices = {
                 -halfSize, 0, -halfSize,
                 -halfSize, 0,  halfSize,
@@ -76,9 +77,9 @@ public final class TestScene {
         };
         float[] uvs = {
                 0, 0,
-                0, 1,
-                1, 1,
-                1, 0
+                0, uvRepeat,
+                uvRepeat, uvRepeat,
+                uvRepeat, 0
         };
         int[] indices = { 0, 1, 2, 0, 2, 3 };
 

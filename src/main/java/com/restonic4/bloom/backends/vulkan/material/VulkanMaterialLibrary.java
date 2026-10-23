@@ -12,7 +12,9 @@ import com.restonic4.bloom.core.Disposable;
 import com.restonic4.bloom.core.scene.ImageData;
 import com.restonic4.bloom.core.scene.Material;
 import com.restonic4.bloom.core.scene.Texture;
+import com.restonic4.bloom.core.scene.WrapMode;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,7 +31,7 @@ public final class VulkanMaterialLibrary implements Disposable {
     private final VulkanCommandPool commandPool;
     private final VulkanDescriptorSetLayout setLayout;
     private final VulkanDescriptorPool pool;
-    private final VulkanSampler sampler;
+    private final Map<WrapMode, VulkanSampler> samplers = new EnumMap<>(WrapMode.class);
 
     private final Map<Texture, VulkanImage> images = new HashMap<>();
     private final Map<Material, Long> sets = new HashMap<>();
@@ -43,7 +45,6 @@ public final class VulkanMaterialLibrary implements Disposable {
                 new VulkanDescriptorBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
         );
         pool = VulkanDescriptorPool.create(logicalDevice, MAX_MATERIALS, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        sampler = VulkanSampler.create(logicalDevice);
     }
 
     public long setFor(Material material) {
@@ -53,10 +54,15 @@ public final class VulkanMaterialLibrary implements Disposable {
         VulkanImage image = images.computeIfAbsent(material.albedo(), this::upload);
 
         long set = pool.allocateSets(setLayout, 1)[0];
-        VulkanDescriptorWriter.writeCombinedImageSampler(logicalDevice, set, 0, image.getViewHandle(), sampler.getHandle());
+        VulkanDescriptorWriter.writeCombinedImageSampler(logicalDevice, set, 0, image.getViewHandle(), samplerFor(material.albedo().wrapMode()).getHandle());
 
         sets.put(material, set);
         return set;
+    }
+
+    // One sampler per wrap mode, created the first time a texture needs it
+    private VulkanSampler samplerFor(WrapMode wrapMode) {
+        return samplers.computeIfAbsent(wrapMode, mode -> VulkanSampler.create(logicalDevice, mode));
     }
 
     private VulkanImage upload(Texture texture) {
@@ -87,7 +93,7 @@ public final class VulkanMaterialLibrary implements Disposable {
     @Override
     public void dispose() {
         images.values().forEach(VulkanImage::dispose);
-        sampler.dispose();
+        samplers.values().forEach(VulkanSampler::dispose);
         pool.dispose();
         setLayout.dispose();
     }

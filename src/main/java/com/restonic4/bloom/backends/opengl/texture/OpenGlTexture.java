@@ -4,6 +4,7 @@ import com.restonic4.bloom.core.Disposable;
 import com.restonic4.bloom.core.graphics.GraphicsSettings;
 import com.restonic4.bloom.core.scene.ImageData;
 import com.restonic4.bloom.core.scene.Texture;
+import com.restonic4.bloom.core.scene.WrapMode;
 
 import org.lwjgl.opengl.GL;
 
@@ -11,6 +12,7 @@ import static org.lwjgl.opengl.EXTTextureFilterAnisotropic.GL_MAX_TEXTURE_MAX_AN
 import static org.lwjgl.opengl.EXTTextureFilterAnisotropic.GL_TEXTURE_MAX_ANISOTROPY_EXT;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.GL_CLAMP_TO_EDGE;
+import static org.lwjgl.opengl.GL14.GL_MIRRORED_REPEAT;
 import static org.lwjgl.opengl.GL13.GL_TEXTURE0;
 import static org.lwjgl.opengl.GL13.glActiveTexture;
 import static org.lwjgl.opengl.GL21.GL_SRGB8_ALPHA8;
@@ -27,8 +29,9 @@ public class OpenGlTexture implements Disposable {
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        int wrap = glWrap(texture.wrapMode());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
         applyAnisotropy();
 
@@ -36,6 +39,14 @@ public class OpenGlTexture implements Disposable {
         glGenerateMipmap(GL_TEXTURE_2D);
 
         glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    private static int glWrap(WrapMode mode) {
+        return switch (mode) {
+            case CLAMP -> GL_CLAMP_TO_EDGE;
+            case REPEAT -> GL_REPEAT;
+            case MIRROR -> GL_MIRRORED_REPEAT;
+        };
     }
 
     // Not part of core OpenGL 3.3: a driver without the extension keeps plain trilinear filtering
