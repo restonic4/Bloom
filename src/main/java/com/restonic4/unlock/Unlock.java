@@ -1,6 +1,7 @@
 package com.restonic4.unlock;
 
 import com.restonic4.bloom.core.graphics.GraphicsApi;
+import com.restonic4.bloom.core.launch.LaunchOptions;
 
 import javax.swing.JOptionPane;
 
@@ -10,7 +11,22 @@ public class Unlock {
         System.setProperty("org.lwjgl.util.DebugAllocator", "true");
         System.setProperty("org.lwjgl.util.DebugStack", "true");
 
-        GraphicsApi api = askGraphicsApi();
+        LaunchOptions options;
+        try {
+            options = LaunchOptions.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.err.println(LaunchOptions.USAGE);
+            System.exit(2);
+            return;
+        }
+
+        if (options.help()) {
+            System.out.println(LaunchOptions.USAGE);
+            return;
+        }
+
+        GraphicsApi api = options.backend().orElseGet(Unlock::askGraphicsApi);
         if (api == null) return;
 
         if (api == GraphicsApi.VULKAN) {
