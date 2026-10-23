@@ -4,6 +4,7 @@ import com.restonic4.bloom.backends.glfw.GlfwWindow;
 import com.restonic4.bloom.backends.opengl.rendering.OpenGlRenderer;
 import com.restonic4.bloom.core.graphics.GraphicsApi;
 import com.restonic4.bloom.core.math.FrameStats;
+import com.restonic4.bloom.core.math.FrameProfiler;
 import com.restonic4.bloom.core.math.Time;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -14,8 +15,9 @@ public class OpenGlTest {
     public static void init() {
         GlfwWindow window = new GlfwWindow(GraphicsApi.OPENGL, 500, 500);
 
-        TestScene scene = new TestScene(window);
-        OpenGlRenderer renderer = new OpenGlRenderer();
+        TestScene scene = new TestScene(window, "opengl");
+        FrameProfiler profiler = new FrameProfiler();
+        OpenGlRenderer renderer = new OpenGlRenderer(profiler);
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
@@ -30,8 +32,10 @@ public class OpenGlTest {
             window.pollEvents();
 
             time.update();
+            long updateStart = profiler.start();
             scene.update(time.delta());
-            scene.showStats(window, stats, time.delta());
+            profiler.stop("update", updateStart);
+            scene.showStats(window, stats, profiler, time.delta());
 
             window.makeContextCurrent();
 
@@ -40,7 +44,9 @@ public class OpenGlTest {
 
             renderer.render(scene.camera(), window, scene.renderScene().batches(), scene.color(time.elapsedSeconds()));
 
+            long swapStart = profiler.start();
             glfwSwapBuffers(window.getHandle());
+            profiler.stop("swap", swapStart);
         }
 
         renderer.dispose();

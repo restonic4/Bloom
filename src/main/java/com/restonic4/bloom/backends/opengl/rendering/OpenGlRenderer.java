@@ -4,6 +4,7 @@ import com.restonic4.bloom.backends.opengl.mesh.OpenGlMesh;
 import com.restonic4.bloom.backends.opengl.shader.OpenGlShaderProgram;
 import com.restonic4.bloom.backends.opengl.texture.OpenGlTexture;
 import com.restonic4.bloom.core.Disposable;
+import com.restonic4.bloom.core.math.FrameProfiler;
 import com.restonic4.bloom.core.rendering.RenderTarget;
 import com.restonic4.bloom.core.scene.Camera;
 import com.restonic4.bloom.core.scene.DrawBatch;
@@ -23,6 +24,7 @@ import static org.lwjgl.opengl.GL31.glDrawElementsInstanced;
 
 public class OpenGlRenderer implements Disposable {
     private OpenGlShaderProgram shader;
+    private final FrameProfiler profiler;
 
     // GPU copies of core meshes and textures, created the first time a batch using them is drawn
     private final Map<MeshData, OpenGlMesh> meshes = new HashMap<>();
@@ -31,7 +33,8 @@ public class OpenGlRenderer implements Disposable {
     // CPU copy of the model matrices, reused by every draw. Not a MemoryStack: that is 64 KB, about 1000 matrices
     private FloatBuffer instanceData = memAllocFloat(1024 * 16);
 
-    public OpenGlRenderer() {
+    public OpenGlRenderer(FrameProfiler profiler) {
+        this.profiler = profiler;
         this.shader = OpenGlShaderProgram.fromResources("core.vsh", "core.fsh");;
     }
 
@@ -60,6 +63,7 @@ public class OpenGlRenderer implements Disposable {
 
         textures.computeIfAbsent(batch.material().albedo(), OpenGlTexture::new).bind(0);
 
+        long fillStart = profiler.start();
         int floats = instances.size() * 16;
         if (instanceData.capacity() < floats) {
             instanceData = memRealloc(instanceData, Math.max(floats, instanceData.capacity() * 2));
@@ -70,12 +74,17 @@ public class OpenGlRenderer implements Disposable {
             instances.get(i).getTransform().getModelMatrix().get(i * 16, instanceData);
         }
         instanceData.limit(floats);
+        profiler.stop("fill", fillStart);
 
+        long uploadStart = profiler.start();
         mesh.uploadInstances(instanceData);
+        profiler.stop("upload", uploadStart);
 
         mesh.bind();
 
+        long drawStart = profiler.start();
         glDrawElementsInstanced(GL_TRIANGLES, mesh.getIndexCount(), GL_UNSIGNED_INT, 0, instances.size());
+        profiler.stop("draw", drawStart);
 
         mesh.unbind();
     }

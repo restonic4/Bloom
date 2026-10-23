@@ -8,6 +8,7 @@ import com.restonic4.bloom.backends.vulkan.device.VulkanLogicalDevice;
 import com.restonic4.bloom.backends.vulkan.material.VulkanMaterialLibrary;
 import com.restonic4.bloom.backends.vulkan.memory.VulkanMemoryUsage;
 import com.restonic4.bloom.core.Disposable;
+import com.restonic4.bloom.core.math.FrameProfiler;
 import com.restonic4.bloom.core.scene.DrawBatch;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
@@ -32,6 +33,7 @@ public final class VulkanSceneResources implements Disposable {
     private final VulkanLogicalDevice logicalDevice;
     private final VulkanCommandPool commandPool;
     private final VulkanMaterialLibrary materials;
+    private final FrameProfiler profiler;
 
     private final Map<MeshData, VulkanMeshBuffers> meshes = new HashMap<>();
     private final VulkanBuffer[] instanceBuffers;
@@ -42,8 +44,9 @@ public final class VulkanSceneResources implements Disposable {
     private List<VulkanMeshDraw> draws = List.of();
     private long drawsVersion = -1;
 
-    public VulkanSceneResources(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, VulkanMaterialLibrary materials, int framesInFlight) {
+    public VulkanSceneResources(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, VulkanMaterialLibrary materials, FrameProfiler profiler, int framesInFlight) {
         this.logicalDevice = logicalDevice;
+        this.profiler = profiler;
         this.commandPool = commandPool;
         this.materials = materials;
 
@@ -67,8 +70,13 @@ public final class VulkanSceneResources implements Disposable {
         ensureInstanceCapacity(frameIndex, count);
 
         if (count > 0) {
+            long fillStart = profiler.start();
             fillMatrices(scene);
+            profiler.stop("fill", fillStart);
+
+            long writeStart = profiler.start();
             instanceBuffers[frameIndex].write(matrices);
+            profiler.stop("write", writeStart);
         }
 
         return draws;

@@ -6,6 +6,8 @@ import com.restonic4.bloom.core.input.Input;
 import com.restonic4.bloom.core.input.Key;
 import com.restonic4.bloom.core.input.MouseButton;
 import com.restonic4.bloom.core.math.FrameStats;
+import com.restonic4.bloom.core.math.FrameProfiler;
+import com.restonic4.bloom.core.math.ProfileLog;
 import com.restonic4.bloom.core.math.Transform;
 import com.restonic4.bloom.core.scene.Camera;
 import com.restonic4.bloom.core.scene.FlyCameraController;
@@ -20,6 +22,9 @@ import com.restonic4.bloom.core.window.Window;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -29,8 +34,10 @@ import java.util.Random;
 public final class TestScene {
     private static final float SPIN_SPEED = 1.0f;
     private static final String TOGGLE_SPIN = "toggle-spin";
+    private static final String SPAWN_BIG_STRESS = "spawn-big-stress";
     private static final float SPAWN_DISTANCE = 4.0f;
     private static final int STRESS_COUNT = 1000;
+    private static final int BIG_STRESS_COUNT = 400_000;
     private static final float STRESS_RANGE = 200.0f;
 
     private final MeshData mesh = MeshData.load("Cube.glb").getFirst();
@@ -38,6 +45,8 @@ public final class TestScene {
     private final Camera camera = new Camera();
     private final FlyCameraController flyCamera = new FlyCameraController();
     private final Window window;
+    private final ProfileLog profileLog;
+    private double profiledSeconds;
     private boolean spinning = true;
 
     private final Texture checker = Texture.load("checker.png");
@@ -54,9 +63,11 @@ public final class TestScene {
     private final Vector3f scratchForward = new Vector3f();
     private final Vector3f scratchPosition = new Vector3f();
 
-    public TestScene(Window window) {
+    public TestScene(Window window, String label) {
         this.window = window;
+        this.profileLog = new ProfileLog(Path.of("build", "profile", label + "-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".log"));
         window.getInput().register(TOGGLE_SPIN, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.K, Key.O));
+        window.getInput().register(SPAWN_BIG_STRESS, Combo.of(Key.LEFT_CONTROL, Key.LEFT_ALT, Key.R));
 
         spinningInstances.add(addCube(0, 0, -10, cubeMaterial));
         spinningInstances.add(addCube(5, 0, -10, cubeMaterial));
@@ -139,14 +150,16 @@ public final class TestScene {
         }
     }
 
-    // E: one cube in front of the camera. Q: remove the last spawned. R: a thousand random cubes. C: remove all spawned
+    // E: one cube in front of the camera. Q: remove the last spawned. R: a thousand random cubes, Ctrl+Alt+R: 400 thousand. C: remove all spawned
     private void updateSpawning(Input input) {
         if (input.justPressed(Key.E)) spawnInFrontOfCamera();
 
         if (input.justPressed(Key.Q) && !spawned.isEmpty()) renderScene.remove(spawned.removeLast());
 
-        if (input.justPressed(Key.R)) {
-            for (int i = 0; i < STRESS_COUNT; i++) spawnRandom();
+        if (input.justPressed(SPAWN_BIG_STRESS)) {
+            spawnRandom(BIG_STRESS_COUNT);
+        } else if (input.justPressed(Key.R)) {
+            spawnRandom(STRESS_COUNT);
         }
 
         if (input.justPressed(Key.C)) {
@@ -162,8 +175,8 @@ public final class TestScene {
         spawn(scratchPosition.x, scratchPosition.y, scratchPosition.z);
     }
 
-    private void spawnRandom() {
-        spawn(randomCoordinate(), randomCoordinate(), randomCoordinate());
+    private void spawnRandom(int count) {
+        for (int i = 0; i < count; i++) spawn(randomCoordinate(), randomCoordinate(), randomCoordinate());
     }
 
     private float randomCoordinate() {
@@ -174,9 +187,14 @@ public final class TestScene {
         spawned.add(addCube(x, y, z, cubeMaterial));
     }
 
-    public void showStats(Window window, FrameStats stats, double delta) {
+    public void showStats(Window window, FrameStats stats, FrameProfiler profiler, double delta) {
+        profiler.endFrame();
+
         if (stats.update(delta)) {
             window.setTitle(String.format("Unlock | %d instances | %.0f fps | %.2f ms", renderScene.instanceCount(), stats.fps(), stats.averageFrameMillis()));
+
+            profiledSeconds += 1.0;
+            profileLog.append(String.format("t=%.0fs | %d instances | %.0f fps | %.2f ms | %s", profiledSeconds, renderScene.instanceCount(), stats.fps(), stats.averageFrameMillis(), profiler.report()));
         }
     }
 

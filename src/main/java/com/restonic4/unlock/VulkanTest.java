@@ -35,6 +35,7 @@ import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
 import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.math.FrameStats;
+import com.restonic4.bloom.core.math.FrameProfiler;
 import com.restonic4.bloom.core.math.Time;
 import org.joml.Matrix4f;
 import org.lwjgl.system.Configuration;
@@ -134,9 +135,10 @@ public class VulkanTest {
         }
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
 
-        TestScene scene = new TestScene(window);
+        TestScene scene = new TestScene(window, "vulkan");
 
-        VulkanSceneResources sceneResources = new VulkanSceneResources(logicalDevice, commandPool, materials, FRAMES_IN_FLIGHT);
+        FrameProfiler profiler = new FrameProfiler();
+        VulkanSceneResources sceneResources = new VulkanSceneResources(logicalDevice, commandPool, materials, profiler, FRAMES_IN_FLIGHT);
 
         Time time = new Time();
         FrameStats stats = new FrameStats();
@@ -156,8 +158,10 @@ public class VulkanTest {
             window.pollEvents();
 
             time.update();
+            long updateStart = profiler.start();
             scene.update(time.delta());
-            scene.showStats(window, stats, time.delta());
+            profiler.stop("update", updateStart);
+            scene.showStats(window, stats, profiler, time.delta());
 
             if (resizeRequested) {
                 window.waitForNonZeroFramebuffer();
@@ -180,7 +184,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, sceneResources, cameraBuffers, cameraSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, sceneResources, cameraBuffers, cameraSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex, profiler)) {
                 resizeRequested = true;
             }
 
@@ -244,9 +248,12 @@ public class VulkanTest {
             double elapsedSeconds,
             List<VkCommandBuffer> commandBuffers,
             VulkanFrameSync frameSync,
-            int frameIndex
+            int frameIndex,
+            FrameProfiler profiler
     ) {
+        long waitStart = profiler.start();
         frameSync.waitForFrameSlot(FRAMES_IN_FLIGHT);
+        profiler.stop("wait", waitStart);
 
         VulkanSwapChain swapChain = swapChainTarget.getSwapChain();
         long[] swapChainImages = swapChain.getImageHandles();
@@ -300,6 +307,7 @@ public class VulkanTest {
             viewProjection.get(0, cameraData);
             cameraBuffers.get(frameIndex).write(cameraData);
 
+            long recordStart = profiler.start();
             VulkanCommandBufferRecorder.record(
                     commandBuffer,
                     swapChainImages[imageIndex],
@@ -313,6 +321,9 @@ public class VulkanTest {
                     cameraSets[frameIndex],
                     scene.color(elapsedSeconds)
             );
+            profiler.stop("record", recordStart);
+
+            long submitStart = profiler.start();
 
             // Prepare the semaphore and timeline signal values
 
@@ -379,6 +390,7 @@ public class VulkanTest {
                     .pImageIndices(stack.ints(imageIndex));
 
             int presentResult = vkQueuePresentKHR(logicalDevice.getPresentQueue(), presentInfo);
+            profiler.stop("submit", submitStart);
             if (presentResult == VK_ERROR_OUT_OF_DATE_KHR
                     || presentResult == VK_SUBOPTIMAL_KHR
                     || acquireResult == VK_SUBOPTIMAL_KHR) {
