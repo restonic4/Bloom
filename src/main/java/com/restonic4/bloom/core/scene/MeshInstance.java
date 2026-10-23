@@ -7,6 +7,9 @@ public class MeshInstance {
     private final Material material;
     private final Transform transform;
 
+    // Position in its batch, kept by the scene that owns it
+    int slot = -1;
+
     public MeshInstance(MeshData mesh, Material material, Transform transform) {
         this.mesh = mesh;
         this.material = material;

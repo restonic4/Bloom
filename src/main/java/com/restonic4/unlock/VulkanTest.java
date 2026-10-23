@@ -7,7 +7,6 @@ import com.restonic4.bloom.backends.vulkan.buffer.VulkanBuffer;
 import com.restonic4.bloom.backends.vulkan.camera.VulkanClipSpace;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandBufferRecorder;
 import com.restonic4.bloom.backends.vulkan.command.VulkanCommandPool;
-import com.restonic4.bloom.backends.vulkan.command.VulkanMeshBuffers;
 import com.restonic4.bloom.backends.vulkan.command.VulkanMeshDraw;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorBinding;
 import com.restonic4.bloom.backends.vulkan.descriptor.VulkanDescriptorPool;
@@ -20,6 +19,7 @@ import com.restonic4.bloom.backends.vulkan.instance.VulkanInstance;
 import com.restonic4.bloom.backends.vulkan.material.VulkanMaterialLibrary;
 import com.restonic4.bloom.backends.vulkan.memory.VulkanMemoryUsage;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanGraphicsPipeline;
+import com.restonic4.bloom.backends.vulkan.rendering.VulkanSceneResources;
 import com.restonic4.bloom.backends.vulkan.pipeline.VulkanPipelineLayout;
 import com.restonic4.bloom.backends.vulkan.shader.VulkanGlslCompiler;
 import com.restonic4.bloom.backends.vulkan.shader.VulkanShader;
@@ -34,22 +34,17 @@ import com.restonic4.bloom.core.graphics.ShaderSource;
 import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
 import com.restonic4.bloom.core.platform.WindowSystem;
+import com.restonic4.bloom.core.math.FrameStats;
 import com.restonic4.bloom.core.math.Time;
-import com.restonic4.bloom.core.scene.DrawBatch;
-import com.restonic4.bloom.core.scene.MeshData;
-import com.restonic4.bloom.core.scene.MeshInstance;
 import org.joml.Matrix4f;
 import org.lwjgl.system.Configuration;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
@@ -141,32 +136,10 @@ public class VulkanTest {
 
         TestScene scene = new TestScene(window);
 
-        // All instance matrices live in one buffer, batch after batch: each draw takes the slice of its batch
-        int instanceCount = scene.instances().size();
-
-        Map<MeshData, VulkanMeshBuffers> meshes = new HashMap<>();
-        List<VulkanMeshDraw> draws = new ArrayList<>();
-        int firstInstance = 0;
-        for (DrawBatch batch : scene.batches()) {
-            VulkanMeshBuffers buffers = meshes.computeIfAbsent(batch.mesh(), mesh -> uploadMesh(logicalDevice, commandPool, mesh));
-            int batchSize = batch.instances().size();
-
-            draws.add(new VulkanMeshDraw(buffers.vertexBuffer(), buffers.indexBuffer(), buffers.indexCount(), firstInstance, batchSize, materials.setFor(batch.material())));
-            firstInstance += batchSize;
-        }
-
-        // One instance buffer per frame slot: the CPU rewrites it every frame while the GPU may still read the other slot's
-        List<VulkanBuffer> instanceBuffers = new ArrayList<>(FRAMES_IN_FLIGHT);
-        for (int i = 0; i < FRAMES_IN_FLIGHT; i++) {
-            instanceBuffers.add(VulkanBuffer.create(
-                    logicalDevice,
-                    (long) instanceCount * 16 * Float.BYTES,
-                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                    VulkanMemoryUsage.HOST_WRITABLE
-            ));
-        }
+        VulkanSceneResources sceneResources = new VulkanSceneResources(logicalDevice, commandPool, materials, FRAMES_IN_FLIGHT);
 
         Time time = new Time();
+        FrameStats stats = new FrameStats();
 
         List<VkCommandBuffer> commandBuffers = commandPool.allocatePrimaryCommandBuffers(FRAMES_IN_FLIGHT);
 
@@ -184,6 +157,7 @@ public class VulkanTest {
 
             time.update();
             scene.update(time.delta());
+            scene.showStats(window, stats, time.delta());
 
             if (resizeRequested) {
                 window.waitForNonZeroFramebuffer();
@@ -206,7 +180,7 @@ public class VulkanTest {
                 resizeRequested = false;
             }
 
-            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, draws, instanceBuffers, cameraBuffers, cameraSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
+            if (!drawFrame(logicalDevice, swapChainTarget, graphicsPipeline, depthImage, sceneResources, cameraBuffers, cameraSets, scene, time.elapsedSeconds(), commandBuffers, frameSync, frameIndex)) {
                 resizeRequested = true;
             }
 
@@ -218,12 +192,8 @@ public class VulkanTest {
             throw new IllegalStateException("Failed to wait for device idle: " + idleResult);
         }
 
-        instanceBuffers.forEach(VulkanBuffer::dispose);
+        sceneResources.dispose();
         cameraBuffers.forEach(VulkanBuffer::dispose);
-        for (VulkanMeshBuffers buffers : meshes.values()) {
-            buffers.indexBuffer().dispose();
-            buffers.vertexBuffer().dispose();
-        }
         depthImage.dispose();
 
         graphicsPipeline.dispose();
@@ -248,22 +218,6 @@ public class VulkanTest {
         glfwTerminate();
     }
 
-    // Mesh buffers are device-local, filled through staging
-    private static VulkanMeshBuffers uploadMesh(VulkanLogicalDevice logicalDevice, VulkanCommandPool commandPool, MeshData mesh) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            float[] vertices = mesh.interleavedVertices();
-            ByteBuffer vertexData = stack.malloc(vertices.length * Float.BYTES);
-            vertexData.asFloatBuffer().put(vertices);
-            VulkanBuffer vertexBuffer = VulkanBuffer.createDeviceLocal(logicalDevice, commandPool, vertexData, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
-            ByteBuffer indexData = stack.malloc(mesh.indices().length * Integer.BYTES);
-            indexData.asIntBuffer().put(mesh.indices());
-            VulkanBuffer indexBuffer = VulkanBuffer.createDeviceLocal(logicalDevice, commandPool, indexData, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-
-            return new VulkanMeshBuffers(vertexBuffer, indexBuffer, mesh.indexCount());
-        }
-    }
-
     /**
      * <p>An example run (the image numbers are made up, since the system chooses them):</p>
      *
@@ -283,8 +237,7 @@ public class VulkanTest {
             VulkanSwapChainTarget swapChainTarget,
             VulkanGraphicsPipeline graphicsPipeline,
             VulkanDepthImage depthImage,
-            List<VulkanMeshDraw> draws,
-            List<VulkanBuffer> instanceBuffers,
+            VulkanSceneResources sceneResources,
             List<VulkanBuffer> cameraBuffers,
             long[] cameraSets,
             TestScene scene,
@@ -334,18 +287,10 @@ public class VulkanTest {
 
             VkCommandBuffer commandBuffer = commandBuffers.get(frameIndex);
 
-            // Write this frame's model matrices into the slot's instance buffer
-            // (free to overwrite: waitForFrameSlot() waited for the last frame that used it)
+            // Brings the slot's instance buffer up to date with the scene (free to overwrite or replace:
+            // waitForFrameSlot() waited for the last frame that used it)
 
-            ByteBuffer instanceData = stack.malloc(scene.instances().size() * 16 * Float.BYTES);
-            FloatBuffer instanceFloats = instanceData.asFloatBuffer();
-            int instanceIndex = 0;
-            for (DrawBatch batch : scene.batches()) {
-                for (MeshInstance instance : batch.instances()) {
-                    instance.getTransform().getModelMatrix().get(instanceIndex++ * 16, instanceFloats);
-                }
-            }
-            instanceBuffers.get(frameIndex).write(instanceData);
+            List<VulkanMeshDraw> draws = sceneResources.prepare(scene.renderScene(), frameIndex);
 
             float aspectRatio = (float) swapChain.getImageWidth() / swapChain.getImageHeight();
             VulkanClipSpace.viewProjection(scene.camera(), aspectRatio, viewProjection);
@@ -364,7 +309,7 @@ public class VulkanTest {
                     graphicsPipeline,
                     depthImage,
                     draws,
-                    instanceBuffers.get(frameIndex),
+                    sceneResources.getInstanceBuffer(frameIndex),
                     cameraSets[frameIndex],
                     scene.color(elapsedSeconds)
             );

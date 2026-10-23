@@ -3,6 +3,7 @@ package com.restonic4.unlock;
 import com.restonic4.bloom.backends.glfw.GlfwWindow;
 import com.restonic4.bloom.backends.opengl.rendering.OpenGlRenderer;
 import com.restonic4.bloom.core.graphics.GraphicsApi;
+import com.restonic4.bloom.core.math.FrameStats;
 import com.restonic4.bloom.core.math.Time;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -23,19 +24,21 @@ public class OpenGlTest {
         glEnable(GL_FRAMEBUFFER_SRGB);
 
         Time time = new Time();
+        FrameStats stats = new FrameStats();
 
         while (!window.shouldClose()) {
             window.pollEvents();
 
             time.update();
             scene.update(time.delta());
+            scene.showStats(window, stats, time.delta());
 
             window.makeContextCurrent();
 
             glClearColor(0.02f, 0.02f, 0.03f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            renderer.render(scene.camera(), window, scene.batches(), scene.color(time.elapsedSeconds()));
+            renderer.render(scene.camera(), window, scene.renderScene().batches(), scene.color(time.elapsedSeconds()));
 
             glfwSwapBuffers(window.getHandle());
         }

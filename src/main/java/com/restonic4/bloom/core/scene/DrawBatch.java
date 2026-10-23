@@ -1,24 +1,47 @@
 package com.restonic4.bloom.core.scene;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-/** Instances that share a mesh and a material, so a backend can draw them with one instanced call. */
-public record DrawBatch(MeshData mesh, Material material, List<MeshInstance> instances) {
-    /** Batches come out in the order their first instance appears. */
-    public static List<DrawBatch> group(List<MeshInstance> instances) {
-        Map<Key, List<MeshInstance>> grouped = new LinkedHashMap<>();
+/** Instances that share a mesh and a material, so a backend can draw them with one instanced call. Owned by a {@link Scene}. */
+public final class DrawBatch {
+    private final MeshData mesh;
+    private final Material material;
+    private final List<MeshInstance> instances = new ArrayList<>();
+    private final List<MeshInstance> instancesView = Collections.unmodifiableList(instances);
 
-        for (MeshInstance instance : instances) {
-            grouped.computeIfAbsent(new Key(instance.getMesh(), instance.getMaterial()), key -> new ArrayList<>()).add(instance);
-        }
-
-        List<DrawBatch> batches = new ArrayList<>(grouped.size());
-        grouped.forEach((key, group) -> batches.add(new DrawBatch(key.mesh, key.material, group)));
-        return batches;
+    DrawBatch(MeshData mesh, Material material) {
+        this.mesh = mesh;
+        this.material = material;
     }
 
-    private record Key(MeshData mesh, Material material) {}
+    void add(MeshInstance instance) {
+        instance.slot = instances.size();
+        instances.add(instance);
+    }
+
+    // The last instance takes the freed slot, so nothing else moves
+    void remove(MeshInstance instance) {
+        int slot = instance.slot;
+        if (slot < 0 || slot >= instances.size() || instances.get(slot) != instance) {
+            throw new IllegalArgumentException("The instance is not in this scene");
+        }
+
+        MeshInstance last = instances.removeLast();
+        if (last != instance) {
+            instances.set(slot, last);
+            last.slot = slot;
+        }
+
+        instance.slot = -1;
+    }
+
+    boolean isEmpty() { return instances.isEmpty(); }
+
+    public MeshData mesh() { return mesh; }
+    public Material material() { return material; }
+
+    /** Live view: it changes when the scene does. */
+    public List<MeshInstance> instances() { return instancesView; }
 }

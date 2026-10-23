@@ -201,6 +201,11 @@ public class GlfwWindow extends Window {
     }
 
     @Override
+    public void setTitle(String title) {
+        glfwSetWindowTitle(this.handle, title);
+    }
+
+    @Override
     public void setCursorMode(CursorMode mode) {
         if (this.cursorMode == mode) return;
 

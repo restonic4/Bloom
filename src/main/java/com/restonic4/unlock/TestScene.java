@@ -5,23 +5,33 @@ import com.restonic4.bloom.core.input.CursorMode;
 import com.restonic4.bloom.core.input.Input;
 import com.restonic4.bloom.core.input.Key;
 import com.restonic4.bloom.core.input.MouseButton;
+import com.restonic4.bloom.core.math.FrameStats;
 import com.restonic4.bloom.core.math.Transform;
 import com.restonic4.bloom.core.scene.Camera;
-import com.restonic4.bloom.core.scene.DrawBatch;
 import com.restonic4.bloom.core.scene.FlyCameraController;
 import com.restonic4.bloom.core.scene.Material;
 import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
+import com.restonic4.bloom.core.scene.Scene;
 import com.restonic4.bloom.core.scene.Texture;
 import com.restonic4.bloom.core.scene.WrapMode;
 import com.restonic4.bloom.core.window.Window;
 
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.Random;
 
 public final class TestScene {
     private static final float SPIN_SPEED = 1.0f;
     private static final String TOGGLE_SPIN = "toggle-spin";
+    private static final float SPAWN_DISTANCE = 4.0f;
+    private static final int STRESS_COUNT = 1000;
+    private static final float STRESS_RANGE = 200.0f;
 
     private final MeshData mesh = MeshData.load("Cube.glb").getFirst();
     private final MeshData planeMesh = createPlane(10.0f, 10.0f);
@@ -35,9 +45,14 @@ public final class TestScene {
     private final Texture grid = Texture.load("grid.png", WrapMode.REPEAT);
     private final Material planeMaterial = new Material(grid);
 
-    private final List<MeshInstance> instances = new ArrayList<>();
+    private final Scene renderScene = new Scene();
     private final List<MeshInstance> spinningInstances = new ArrayList<>();
-    private final List<DrawBatch> batches;
+
+    private final Deque<MeshInstance> spawned = new ArrayDeque<>();
+    private final Random random = new Random(1234);
+    private final Quaternionf scratchRotation = new Quaternionf();
+    private final Vector3f scratchForward = new Vector3f();
+    private final Vector3f scratchPosition = new Vector3f();
 
     public TestScene(Window window) {
         this.window = window;
@@ -54,9 +69,6 @@ public final class TestScene {
         // Below the centre cube. One-sided: only its top is a front face, so it vanishes when seen from below or with the wrong winding
         addInstance(planeMesh, planeMaterial, new Transform().setPosition(0, -3, -10));
         addInstance(planeMesh, planeMaterial, new Transform().setPosition(0, 7, -20).setRotationXYZDegrees(90, 0, 0));
-
-        // The scene does not change shape, so group once
-        batches = DrawBatch.group(instances);
     }
 
     // A flat square on the XZ plane, facing up (+Y). Vertices go counter-clockwise when seen from above (OpenGL convention)
@@ -95,15 +107,14 @@ public final class TestScene {
     }
 
     private MeshInstance addInstance(MeshData mesh, Material material, Transform transform) {
-        MeshInstance instance = new MeshInstance(mesh, material, transform);
-        instances.add(instance);
-        return instance;
+        return renderScene.add(mesh, material, transform);
     }
 
     public void update(double delta) {
         Input input = window.getInput();
 
         updateCameraControl(input, delta);
+        updateSpawning(input);
 
         if (input.justPressed(TOGGLE_SPIN)) spinning = !spinning;
         if (!spinning) return;
@@ -128,6 +139,47 @@ public final class TestScene {
         }
     }
 
+    // E: one cube in front of the camera. Q: remove the last spawned. R: a thousand random cubes. C: remove all spawned
+    private void updateSpawning(Input input) {
+        if (input.justPressed(Key.E)) spawnInFrontOfCamera();
+
+        if (input.justPressed(Key.Q) && !spawned.isEmpty()) renderScene.remove(spawned.removeLast());
+
+        if (input.justPressed(Key.R)) {
+            for (int i = 0; i < STRESS_COUNT; i++) spawnRandom();
+        }
+
+        if (input.justPressed(Key.C)) {
+            for (MeshInstance instance : spawned) renderScene.remove(instance);
+            spawned.clear();
+        }
+    }
+
+    private void spawnInFrontOfCamera() {
+        camera.getTransform().getRotation(scratchRotation).transform(scratchForward.set(0, 0, -1));
+        camera.getTransform().getPosition(scratchPosition).fma(SPAWN_DISTANCE, scratchForward);
+
+        spawn(scratchPosition.x, scratchPosition.y, scratchPosition.z);
+    }
+
+    private void spawnRandom() {
+        spawn(randomCoordinate(), randomCoordinate(), randomCoordinate());
+    }
+
+    private float randomCoordinate() {
+        return (random.nextFloat() - 0.5f) * STRESS_RANGE;
+    }
+
+    private void spawn(float x, float y, float z) {
+        spawned.add(addCube(x, y, z, cubeMaterial));
+    }
+
+    public void showStats(Window window, FrameStats stats, double delta) {
+        if (stats.update(delta)) {
+            window.setTitle(String.format("Unlock | %d instances | %.0f fps | %.2f ms", renderScene.instanceCount(), stats.fps(), stats.averageFrameMillis()));
+        }
+    }
+
     public float[] color(double elapsedSeconds) {
         float time = (float) elapsedSeconds;
 
@@ -140,6 +192,5 @@ public final class TestScene {
     }
 
     public Camera camera() { return camera; }
-    public List<MeshInstance> instances() { return instances; }
-    public List<DrawBatch> batches() { return batches; }
+    public Scene renderScene() { return renderScene; }
 }

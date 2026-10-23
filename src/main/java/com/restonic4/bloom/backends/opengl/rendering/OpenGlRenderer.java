@@ -11,7 +11,6 @@ import com.restonic4.bloom.core.scene.MeshData;
 import com.restonic4.bloom.core.scene.MeshInstance;
 import com.restonic4.bloom.core.scene.Texture;
 import org.joml.Matrix4fc;
-import org.lwjgl.system.MemoryStack;
 
 import java.nio.FloatBuffer;
 import java.util.HashMap;
@@ -19,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.opengl.GL31.glDrawElementsInstanced;
 
 public class OpenGlRenderer implements Disposable {
@@ -28,11 +28,13 @@ public class OpenGlRenderer implements Disposable {
     private final Map<MeshData, OpenGlMesh> meshes = new HashMap<>();
     private final Map<Texture, OpenGlTexture> textures = new HashMap<>();
 
+    // CPU copy of the model matrices, reused by every draw. Not a MemoryStack: that is 64 KB, about 1000 matrices
+    private FloatBuffer instanceData = memAllocFloat(1024 * 16);
+
     public OpenGlRenderer() {
         this.shader = OpenGlShaderProgram.fromResources("core.vsh", "core.fsh");;
     }
 
-    // TODO: reuse float buffer
     public void render(Camera mainCamera, RenderTarget renderTarget, List<DrawBatch> batches, float[] color) {
         shader.bind();
         shader.set("uTexture", 0);
@@ -58,18 +60,18 @@ public class OpenGlRenderer implements Disposable {
 
         textures.computeIfAbsent(batch.material().albedo(), OpenGlTexture::new).bind(0);
 
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer instanceBuffer = stack.mallocFloat(instances.size() * 16);
-
-            for (int i = 0; i < instances.size(); i++) {
-                instances.get(i).getTransform().getModelMatrix().get(i * 16, instanceBuffer);
-            }
-
-            instanceBuffer.limit(instances.size() * 16);
-            instanceBuffer.position(0);
-
-            mesh.uploadInstances(instanceBuffer);
+        int floats = instances.size() * 16;
+        if (instanceData.capacity() < floats) {
+            instanceData = memRealloc(instanceData, Math.max(floats, instanceData.capacity() * 2));
         }
+
+        instanceData.clear();
+        for (int i = 0; i < instances.size(); i++) {
+            instances.get(i).getTransform().getModelMatrix().get(i * 16, instanceData);
+        }
+        instanceData.limit(floats);
+
+        mesh.uploadInstances(instanceData);
 
         mesh.bind();
 
@@ -83,5 +85,6 @@ public class OpenGlRenderer implements Disposable {
         meshes.values().forEach(OpenGlMesh::dispose);
         textures.values().forEach(OpenGlTexture::dispose);
         shader.dispose();
+        memFree(instanceData);
     }
 }

@@ -24,6 +24,8 @@ public abstract class Window extends RenderTarget implements Disposable {
     /** Clears the per-frame input state, then processes pending events. Call once per frame. */
     public abstract void pollEvents();
 
+    public abstract void setTitle(String title);
+
     public abstract void setCursorMode(CursorMode mode);
     public abstract CursorMode getCursorMode();
 
