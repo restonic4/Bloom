@@ -8,7 +8,6 @@ import com.restonic4.bloom.core.input.MouseButton;
 import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.window.Window;
 import com.restonic4.bloom.events.EventResult;
-import com.restonic4.unlock.Unlock;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
@@ -31,6 +30,7 @@ import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.opengl.GL11.glViewport;
 
 public class GlfwWindow extends Window {
+    private final GraphicsApi api;
     private final long handle;
 
     private GLFWWindowSizeCallback sizeCallback;
@@ -47,12 +47,13 @@ public class GlfwWindow extends Window {
 
     private CursorMode cursorMode = CursorMode.NORMAL;
 
-    public GlfwWindow(int width, int height) {
-        this(width, height, WindowSystem.UNKNOWN);
+    public GlfwWindow(GraphicsApi api, int width, int height) {
+        this(api, width, height, WindowSystem.UNKNOWN);
     }
 
-    public GlfwWindow(int width, int height, WindowSystem windowSystem) {
+    public GlfwWindow(GraphicsApi api, int width, int height, WindowSystem windowSystem) {
         super(width, height);
+        this.api = api;
 
         // Print GLFW errors to stderr
         GLFWErrorCallback.createPrint(System.err).set();
@@ -63,19 +64,19 @@ public class GlfwWindow extends Window {
 
         if (!glfwInit()) throw new IllegalStateException("Unable to initialize GLFW");
 
-        initGraphicsApi(Unlock.API);
+        initGraphicsApi(api);
 
         // Settings
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
         // Creation
-        this.handle = glfwCreateWindow(width, height, "LWJGL3 Window", MemoryUtil.NULL, MemoryUtil.NULL);
+        this.handle = glfwCreateWindow(width, height, "LWJGL3 Window with " + api.name(), MemoryUtil.NULL, MemoryUtil.NULL);
         if (handle == MemoryUtil.NULL) throw new IllegalStateException("Failed to create GLFW window");
 
         this.centerWindow();
 
-        finalizeGraphicsApi(Unlock.API);
+        finalizeGraphicsApi(api);
 
         this.installEvents();
         this.installInput();
@@ -117,7 +118,7 @@ public class GlfwWindow extends Window {
             this.width = width;
             this.height = height;
 
-            if (Unlock.API == GraphicsApi.OPENGL) {
+            if (api == GraphicsApi.OPENGL) {
                 glViewport(0, 0, width, height);
             }
         });

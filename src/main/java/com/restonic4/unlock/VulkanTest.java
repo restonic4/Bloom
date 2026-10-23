@@ -27,6 +27,7 @@ import com.restonic4.bloom.backends.vulkan.swapchain.VulkanSwapChain;
 import com.restonic4.bloom.backends.vulkan.swapchain.VulkanSwapChainTarget;
 import com.restonic4.bloom.backends.vulkan.swapchain.VulkanSwapChainImageViews;
 import com.restonic4.bloom.backends.vulkan.sync.VulkanFrameSync;
+import com.restonic4.bloom.core.graphics.GraphicsApi;
 import com.restonic4.bloom.core.graphics.ShaderSource;
 import com.restonic4.bloom.core.graphics.ShaderStage;
 import com.restonic4.bloom.core.platform.Version;
@@ -62,9 +63,9 @@ public class VulkanTest {
     public static void init() {
         GlfwWindow window;
         if ("x11".equalsIgnoreCase(System.getProperty("engine.windowing", ""))) {
-            window = new GlfwWindow(500, 500, WindowSystem.X11);
+            window = new GlfwWindow(GraphicsApi.VULKAN, 500, 500, WindowSystem.X11);
         } else {
-            window = new GlfwWindow(500, 500);
+            window = new GlfwWindow(GraphicsApi.VULKAN, 500, 500);
         }
 
         VulkanInstance vkInstance = VulkanInstance.create(
