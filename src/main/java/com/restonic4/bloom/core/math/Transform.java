@@ -2,6 +2,8 @@ package com.restonic4.bloom.core.math;
 
 import org.joml.*;
 
+import java.lang.Math;
+
 public class Transform {
     private float x, y, z;
     private float scaleX, scaleY, scaleZ;
@@ -10,6 +12,7 @@ public class Transform {
     private final Matrix4f modelMatrix = new Matrix4f();
 
     private boolean dirty = true;
+    private boolean frozen;
     private long version = 0;
 
     public Transform() { identity(); }
@@ -29,6 +32,7 @@ public class Transform {
     // Position
 
     public Transform setPosition(float x, float y, float z) {
+        requireMutable();
         if (this.x != x || this.y != y || this.z != z) {
             this.x = x;
             this.y = y;
@@ -44,6 +48,7 @@ public class Transform {
     }
 
     public Transform translate(float dx, float dy, float dz) {
+        requireMutable();
         if (dx != 0.0f || dy != 0.0f || dz != 0.0f) {
             x += dx;
             y += dy;
@@ -61,6 +66,7 @@ public class Transform {
     }
 
     public Transform setScale(float x, float y, float z) {
+        requireMutable();
         if (scaleX != x || scaleY != y || scaleZ != z) {
             scaleX = x;
             scaleY = y;
@@ -76,6 +82,7 @@ public class Transform {
     }
 
     public Transform scale(float factor) {
+        requireMutable();
         if (factor != 1.0f) {
             scaleX *= factor;
             scaleY *= factor;
@@ -87,6 +94,7 @@ public class Transform {
     }
 
     public Transform scale(float x, float y, float z) {
+        requireMutable();
         if (x != 1.0f || y != 1.0f || z != 1.0f) {
             scaleX *= x;
             scaleY *= y;
@@ -100,6 +108,7 @@ public class Transform {
     // Rotation
 
     public Transform setRotation(Quaternionfc quaternion) {
+        requireMutable();
         if (!rotation.equals(quaternion)) {
             rotation.set(quaternion);
             markDirty();
@@ -109,6 +118,7 @@ public class Transform {
     }
 
     public Transform setRotation(float x, float y, float z, float w) {
+        requireMutable();
         if (rotation.x() != x || rotation.y() != y || rotation.z() != z || rotation.w() != w) {
             rotation.set(x, y, z, w);
             markDirty();
@@ -118,18 +128,21 @@ public class Transform {
     }
 
     public Transform setRotationXYZRadians(float angleX, float angleY, float angleZ) {
+        requireMutable();
         rotation.rotationXYZ(angleX, angleY, angleZ);
         markDirty();
         return this;
     }
 
     public Transform setRotationAxisRadians(float angle, float axisX, float axisY, float axisZ) {
+        requireMutable();
         rotation.rotationAxis(angle, axisX, axisY, axisZ);
         markDirty();
         return this;
     }
 
     public Transform rotateXRadians(float angle) {
+        requireMutable();
         if (angle != 0.0f) {
             rotation.rotateX(angle);
             markDirty();
@@ -139,6 +152,7 @@ public class Transform {
     }
 
     public Transform rotateYRadians(float angle) {
+        requireMutable();
         if (angle != 0.0f) {
             rotation.rotateY(angle);
             markDirty();
@@ -148,6 +162,7 @@ public class Transform {
     }
 
     public Transform rotateZRadians(float angle) {
+        requireMutable();
         if (angle != 0.0f) {
             rotation.rotateZ(angle);
             markDirty();
@@ -157,6 +172,7 @@ public class Transform {
     }
 
     public Transform rotateXYZRadians(float angleX, float angleY, float angleZ) {
+        requireMutable();
         if (angleX != 0.0f || angleY != 0.0f || angleZ != 0.0f) {
             rotation.rotateXYZ(angleX, angleY, angleZ);
             markDirty();
@@ -182,6 +198,7 @@ public class Transform {
     }
 
     public Transform rotate(Quaternionfc delta) {
+        requireMutable();
         rotation.mul(delta);
         markDirty();
         return this;
@@ -190,6 +207,7 @@ public class Transform {
     // Util
 
     public Transform identity() {
+        requireMutable();
         boolean changed = x != 0.0f || y != 0.0f || z != 0.0f
                         || scaleX != 1.0f || scaleY != 1.0f || scaleZ != 1.0f
                         || rotation.x() != 0.0f || rotation.y() != 0.0f || rotation.z() != 0.0f || rotation.w() != 1.0f;
@@ -208,7 +226,20 @@ public class Transform {
         return this;
     }
 
+    /** Makes every later change throw. There is no way back: static scene content relies on it never moving again. */
+    public Transform freeze() {
+        frozen = true;
+        return this;
+    }
+
+    public boolean isFrozen() { return frozen; }
+
+    private void requireMutable() {
+        if (frozen) throw new IllegalStateException("This transform is frozen");
+    }
+
     public void markDirty() {
+        requireMutable();
         this.dirty = true;
         if (this.version == Long.MAX_VALUE) throw new ArithmeticException("Transform version overflow!");
         this.version++;
@@ -246,8 +277,8 @@ public class Transform {
         return modelMatrix;
     }
 
-    private static float radians(float degrees) { return (float) java.lang.Math.toRadians(degrees); }
-    private static float degrees(float radians) { return (float) java.lang.Math.toDegrees(radians); }
+    private static float radians(float degrees) { return (float) Math.toRadians(degrees); }
+    private static float degrees(float radians) { return (float) Math.toDegrees(radians); }
 
     public boolean isDirty() { return dirty; }
     public long getVersion() { return version; }
