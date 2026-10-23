@@ -1,11 +1,14 @@
 package com.restonic4.bloom.core.window;
 
 import com.restonic4.bloom.core.Disposable;
+import com.restonic4.bloom.core.input.CursorMode;
+import com.restonic4.bloom.core.input.Input;
 import com.restonic4.bloom.core.rendering.RenderTarget;
 
 public abstract class Window extends RenderTarget implements Disposable {
     protected int x;
     protected int y;
+    protected final Input input = new Input();
     private boolean shouldClose;
 
     protected Window(int width, int height) {
@@ -15,6 +18,14 @@ public abstract class Window extends RenderTarget implements Disposable {
 
     public boolean shouldClose() { return shouldClose; }
     public void setShouldClose(boolean shouldClose) { this.shouldClose = shouldClose; }
+
+    public Input getInput() { return input; }
+
+    /** Clears the per-frame input state, then processes pending events. Call once per frame. */
+    public abstract void pollEvents();
+
+    public abstract void setCursorMode(CursorMode mode);
+    public abstract CursorMode getCursorMode();
 
     public abstract void centerWindow();
 

@@ -133,7 +133,7 @@ public class VulkanTest {
         }
         VulkanGraphicsPipeline graphicsPipeline = VulkanGraphicsPipeline.create(logicalDevice, pipelineLayout, swapChainTarget.getSwapChain().getImageFormat(), VulkanDepthImage.FORMAT, vertexStage, fragmentStage);
 
-        TestScene scene = new TestScene();
+        TestScene scene = new TestScene(window);
 
         // All instance matrices live in one buffer: the cubes first, then the plane
         int cubeCount = scene.instances().size();
@@ -169,7 +169,7 @@ public class VulkanTest {
         int frameIndex = 0;
 
         while (!window.shouldClose()) {
-            glfwPollEvents();
+            window.pollEvents();
 
             time.update();
             scene.update(time.delta());

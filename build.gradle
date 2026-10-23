@@ -69,6 +69,14 @@ dependencies {
 
     implementation "com.restonic4.bloom:events:${bloomEventsVersion}"
     annotationProcessor "com.restonic4.bloom:events:${bloomEventsVersion}"
+
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named("test", Test) {
+    useJUnitPlatform()
 }
 
 application {

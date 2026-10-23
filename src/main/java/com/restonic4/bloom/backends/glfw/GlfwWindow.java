@@ -2,6 +2,9 @@ package com.restonic4.bloom.backends.glfw;
 
 import com.restonic4.bloom.api.events.WindowEvents;
 import com.restonic4.bloom.core.graphics.GraphicsApi;
+import com.restonic4.bloom.core.input.CursorMode;
+import com.restonic4.bloom.core.input.Key;
+import com.restonic4.bloom.core.input.MouseButton;
 import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.window.Window;
 import com.restonic4.bloom.events.EventResult;
@@ -11,6 +14,7 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
+import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -36,6 +40,12 @@ public class GlfwWindow extends Window {
     private GLFWWindowCloseCallback closeCallback;
     private GLFWWindowMaximizeCallback maximizeCallback;
     private GLFWWindowRefreshCallback refreshCallback;
+    private GLFWKeyCallback keyCallback;
+    private GLFWMouseButtonCallback mouseButtonCallback;
+    private GLFWCursorPosCallback cursorPosCallback;
+    private GLFWScrollCallback scrollCallback;
+
+    private CursorMode cursorMode = CursorMode.NORMAL;
 
     public GlfwWindow(int width, int height) {
         this(width, height, WindowSystem.UNKNOWN);
@@ -68,6 +78,7 @@ public class GlfwWindow extends Window {
         finalizeGraphicsApi(Unlock.API);
 
         this.installEvents();
+        this.installInput();
 
         glfwShowWindow(handle);
     }
@@ -124,8 +135,10 @@ public class GlfwWindow extends Window {
 
         focusCallback = glfwSetWindowFocusCallback(this.handle, (window, focused) -> {
             if (focused) {
+                input.rebaseMouse();
                 WindowEvents.FOCUSED.invoker().onEvent(this);
             } else {
+                input.releaseAll();
                 EventResult eventResult = WindowEvents.UNFOCUSED.invoker().onEvent(this);
                 if (eventResult == EventResult.CANCELED) this.setFocus();
             }
@@ -154,6 +167,58 @@ public class GlfwWindow extends Window {
 
         refreshCallback = glfwSetWindowRefreshCallback(this.handle, window -> WindowEvents.REFRESH_REQUIRED.invoker().onEvent(this));
     }
+
+    private void installInput() {
+        keyCallback = glfwSetKeyCallback(this.handle, (window, key, scancode, action, mods) -> {
+            if (action == GLFW_REPEAT) return;
+
+            Key mapped = GlfwKeys.fromGlfw(key);
+            if (mapped != null) input.onButton(mapped, action == GLFW_PRESS);
+        });
+
+        mouseButtonCallback = glfwSetMouseButtonCallback(this.handle, (window, button, action, mods) -> {
+            input.onButton(MouseButton.of(button), action == GLFW_PRESS);
+        });
+
+        cursorPosCallback = glfwSetCursorPosCallback(this.handle, (window, x, y) -> input.onCursorPosition(x, y));
+
+        scrollCallback = glfwSetScrollCallback(this.handle, (window, x, y) -> input.onScroll(x, y));
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            DoubleBuffer x = stack.doubles(0);
+            DoubleBuffer y = stack.doubles(0);
+
+            glfwGetCursorPos(this.handle, x, y);
+            input.onCursorPosition(x.get(0), y.get(0));
+        }
+    }
+
+    @Override
+    public void pollEvents() {
+        input.beginFrame();
+        glfwPollEvents();
+    }
+
+    @Override
+    public void setCursorMode(CursorMode mode) {
+        if (this.cursorMode == mode) return;
+
+        // Raw motion (no OS acceleration) can only be on while the cursor is disabled
+        boolean rawSupported = glfwRawMouseMotionSupported();
+        if (mode == CursorMode.LOCKED) {
+            glfwSetInputMode(this.handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            if (rawSupported) glfwSetInputMode(this.handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        } else {
+            if (rawSupported) glfwSetInputMode(this.handle, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+            glfwSetInputMode(this.handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+
+        this.cursorMode = mode;
+        input.rebaseMouse();
+    }
+
+    @Override
+    public CursorMode getCursorMode() { return this.cursorMode; }
 
     @Override
     public void centerWindow() {
@@ -221,6 +286,10 @@ public class GlfwWindow extends Window {
         if (closeCallback != null) closeCallback.free();
         if (maximizeCallback != null) maximizeCallback.free();
         if (refreshCallback != null) refreshCallback.free();
+        if (keyCallback != null) keyCallback.free();
+        if (mouseButtonCallback != null) mouseButtonCallback.free();
+        if (cursorPosCallback != null) cursorPosCallback.free();
+        if (scrollCallback != null) scrollCallback.free();
 
         Callbacks.glfwFreeCallbacks(handle);
         glfwDestroyWindow(this.handle);

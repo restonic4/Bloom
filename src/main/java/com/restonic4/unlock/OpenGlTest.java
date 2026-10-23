@@ -13,7 +13,7 @@ public class OpenGlTest {
     public static void init() {
         GlfwWindow window = new GlfwWindow(500, 500);
 
-        TestScene scene = new TestScene();
+        TestScene scene = new TestScene(window);
         OpenGlMesh mesh = new OpenGlMesh(scene.mesh());
         OpenGlMesh planeMesh = new OpenGlMesh(scene.planeMesh());
         OpenGlRenderer renderer = new OpenGlRenderer();
@@ -24,12 +24,12 @@ public class OpenGlTest {
         Time time = new Time();
 
         while (!window.shouldClose()) {
+            window.pollEvents();
+
             time.update();
             scene.update(time.delta());
 
             window.makeContextCurrent();
-
-            glfwPollEvents();
 
             glClearColor(0.02f, 0.02f, 0.03f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
