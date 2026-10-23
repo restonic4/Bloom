@@ -6,14 +6,17 @@ public class MeshInstance {
     private final MeshData mesh;
     private final Material material;
     private final Transform transform;
+    private final Mobility mobility;
 
-    // Position in its batch, kept by the scene that owns it
+    // Where the scene keeps it: its position in the batch and the set holding that batch
     int slot = -1;
+    BatchSet owner;
 
-    public MeshInstance(MeshData mesh, Material material, Transform transform) {
+    public MeshInstance(MeshData mesh, Material material, Transform transform, Mobility mobility) {
         this.mesh = mesh;
         this.material = material;
         this.transform = transform;
+        this.mobility = mobility;
     }
 
     public MeshData getMesh() {
@@ -24,5 +27,8 @@ public class MeshInstance {
     }
     public Transform getTransform() {
         return transform;
+    }
+    public Mobility getMobility() {
+        return mobility;
     }
 }

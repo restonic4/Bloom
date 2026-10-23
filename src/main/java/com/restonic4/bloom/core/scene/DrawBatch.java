@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Instances that share a mesh and a material, so a backend can draw them with one instanced call. Owned by a {@link Scene}. */
+/** Instances that share a mesh and a material, so a backend can draw them with one instanced call. Owned by a {@link Scene} or a {@link StaticChunk}. */
 public final class DrawBatch {
     private final MeshData mesh;
     private final Material material;

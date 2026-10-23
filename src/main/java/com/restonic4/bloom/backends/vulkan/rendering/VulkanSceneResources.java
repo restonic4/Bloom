@@ -86,10 +86,10 @@ public final class VulkanSceneResources implements Disposable {
 
     // Each batch uses a slice of the instance buffer, in the same order fillMatrices writes them
     private List<VulkanMeshDraw> buildDraws(Scene scene) {
-        List<VulkanMeshDraw> built = new ArrayList<>(scene.batches().size());
+        List<VulkanMeshDraw> built = new ArrayList<>(scene.drawBatches().size());
 
         int firstInstance = 0;
-        for (DrawBatch batch : scene.batches()) {
+        for (DrawBatch batch : scene.drawBatches()) {
             VulkanMeshBuffers buffers = meshes.computeIfAbsent(batch.mesh(), this::uploadMesh);
             int batchSize = batch.instances().size();
 
@@ -118,7 +118,7 @@ public final class VulkanSceneResources implements Disposable {
         matrices.clear();
 
         int offset = 0;
-        for (DrawBatch batch : scene.batches()) {
+        for (DrawBatch batch : scene.drawBatches()) {
             for (MeshInstance instance : batch.instances()) {
                 instance.getTransform().getModelMatrix().get(offset, matrices);
                 offset += MATRIX_BYTES;
