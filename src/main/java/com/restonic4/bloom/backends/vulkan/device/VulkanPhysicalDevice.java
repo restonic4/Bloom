@@ -165,6 +165,23 @@ public class VulkanPhysicalDevice {
         }
     }
 
+    // Optional feature: the device is not rejected without it
+    public boolean supportsSamplerAnisotropy() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkPhysicalDeviceFeatures features = VkPhysicalDeviceFeatures.calloc(stack);
+            vkGetPhysicalDeviceFeatures(handle, features);
+            return features.samplerAnisotropy();
+        }
+    }
+
+    public float getMaxSamplerAnisotropy() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VkPhysicalDeviceProperties properties = VkPhysicalDeviceProperties.calloc(stack);
+            vkGetPhysicalDeviceProperties(handle, properties);
+            return properties.limits().maxSamplerAnisotropy();
+        }
+    }
+
     public VkPhysicalDevice getHandle() { return handle; }
     public int getScore() { return scoreData.score(); }
     public Type getType() { return scoreData.type(); }

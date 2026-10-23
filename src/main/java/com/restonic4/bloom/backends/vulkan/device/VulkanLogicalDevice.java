@@ -1,6 +1,7 @@
 package com.restonic4.bloom.backends.vulkan.device;
 
 import com.restonic4.bloom.core.Disposable;
+import com.restonic4.bloom.core.graphics.GraphicsSettings;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -20,18 +21,22 @@ public class VulkanLogicalDevice implements Disposable {
     private final int graphicsQueueFamilyIndex;
     private final int presentQueueFamilyIndex;
 
+    private final float maxAnisotropy;
+
     private VulkanLogicalDevice(
             VkDevice handle,
             VkQueue graphicsQueue,
             VkQueue presentQueue,
             int graphicsQueueFamilyIndex,
-            int presentQueueFamilyIndex
+            int presentQueueFamilyIndex,
+            float maxAnisotropy
     ) {
         this.handle = handle;
         this.graphicsQueue = graphicsQueue;
         this.presentQueue = presentQueue;
         this.graphicsQueueFamilyIndex = graphicsQueueFamilyIndex;
         this.presentQueueFamilyIndex = presentQueueFamilyIndex;
+        this.maxAnisotropy = maxAnisotropy;
     }
 
     public static VulkanLogicalDevice create(VulkanPhysicalDevice physicalDevice, long surface) {
@@ -84,6 +89,10 @@ public class VulkanLogicalDevice implements Disposable {
 
             enabledFeatures.features().geometryShader(true);
 
+            boolean anisotropy = physicalDevice.supportsSamplerAnisotropy();
+            enabledFeatures.features().samplerAnisotropy(anisotropy);
+            float maxAnisotropy = anisotropy ? Math.min(GraphicsSettings.MAX_ANISOTROPY, physicalDevice.getMaxSamplerAnisotropy()) : 1.0f;
+
             // Logical device
 
             VkDeviceCreateInfo createInfo = VkDeviceCreateInfo.calloc(stack)
@@ -115,7 +124,7 @@ public class VulkanLogicalDevice implements Disposable {
 
             VkQueue presentQueue = new VkQueue(pPresentQueue.get(0), device);
 
-            return new VulkanLogicalDevice(device, graphicsQueue, presentQueue, indices.graphics(), indices.present());
+            return new VulkanLogicalDevice(device, graphicsQueue, presentQueue, indices.graphics(), indices.present(), maxAnisotropy);
         }
     }
 
@@ -126,6 +135,9 @@ public class VulkanLogicalDevice implements Disposable {
 
     public int getGraphicsQueueFamilyIndex() { return graphicsQueueFamilyIndex; }
     public int getPresentQueueFamilyIndex() { return presentQueueFamilyIndex; }
+
+    /** Samples the samplers may use, 1 when the feature is off. Already limited by the device. */
+    public float getMaxAnisotropy() { return maxAnisotropy; }
 
     @Override
     public void dispose() {

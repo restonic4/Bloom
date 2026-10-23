@@ -31,7 +31,8 @@ public final class VulkanSampler implements Disposable {
                     .addressModeU(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
                     .addressModeV(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
                     .addressModeW(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE)
-                    .anisotropyEnable(false)
+                    .anisotropyEnable(logicalDevice.getMaxAnisotropy() > 1.0f)
+                    .maxAnisotropy(logicalDevice.getMaxAnisotropy())
                     .compareEnable(false)
                     .minLod(0.0f)
                     .maxLod(VK_LOD_CLAMP_NONE) // The sampler is shared by all textures; the image view limits it to the levels each one has
