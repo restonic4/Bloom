@@ -1,0 +1,35 @@
+plugins {
+    id 'java-platform'
+    id 'bloom.publishing'
+}
+
+// events keeps its own version line, so read it instead of repeating it here
+evaluationDependsOn(':events')
+
+javaPlatform {
+    allowDependencies()
+}
+
+dependencies {
+    // Imports LWJGL's own BOM, so users add LWJGL natives without a version
+    api platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+
+    constraints {
+        api "com.restonic4.bloom:events:${project(':events').version}"
+
+        api "com.restonic4.bloom:bloom-core:${version}"
+        api "com.restonic4.bloom:bloom-assets:${version}"
+        api "com.restonic4.bloom:bloom-window-glfw:${version}"
+        api "com.restonic4.bloom:bloom-render-opengl:${version}"
+        api "com.restonic4.bloom:bloom-render-vulkan:${version}"
+    }
+}
+
+mavenPublishing {
+    coordinates(project.group.toString(), 'bloom-bom', project.version.toString())
+
+    pom {
+        name = 'Bloom BOM'
+        description = 'Bill of materials for the Bloom game engine. Pins every Bloom module and LWJGL to matching versions.'
+    }
+}
