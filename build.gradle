@@ -72,6 +72,7 @@ dependencies {
     implementation project(':core')
     implementation project(':window-glfw')
     implementation project(':render-opengl')
+    implementation project(':render-vulkan')
 
     testImplementation platform("org.junit:junit-bom:5.11.4")
     testImplementation "org.junit.jupiter:junit-jupiter"
