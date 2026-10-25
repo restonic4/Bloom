@@ -1,9 +1,7 @@
 plugins {
+    id 'bloom.java-library'
     id 'application'
 }
-
-group = group
-version = version
 
 static def detectHostNatives() {
     def os = System.getProperty("os.name").toLowerCase()
@@ -40,11 +38,6 @@ static def detectHostNatives() {
 def lwjglNatives = providers.gradleProperty("lwjglNatives").getOrElse(detectHostNatives())
 def targetPlatform = providers.gradleProperty("targetPlatform").getOrElse("local")
 
-repositories {
-    mavenCentral()
-    mavenLocal()
-}
-
 dependencies {
     implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
 
@@ -73,14 +66,6 @@ dependencies {
     implementation project(':window-glfw')
     implementation project(':render-opengl')
     implementation project(':render-vulkan')
-
-    testImplementation platform("org.junit:junit-bom:5.11.4")
-    testImplementation "org.junit.jupiter:junit-jupiter"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
-}
-
-tasks.named("test", Test) {
-    useJUnitPlatform()
 }
 
 application {
