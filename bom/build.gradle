@@ -3,8 +3,16 @@ plugins {
     id 'bloom.publishing'
 }
 
-// events keeps its own version line, so read it instead of repeating it here
-evaluationDependsOn(':events')
+// Every module has its own version line; this BOM pairs the ones that work together
+def modules = [
+        'events'       : 'bloom-events',
+        'core'         : 'bloom-core',
+        'assets'       : 'bloom-assets',
+        'window-glfw'  : 'bloom-window-glfw',
+        'render-opengl': 'bloom-render-opengl',
+        'render-vulkan': 'bloom-render-vulkan',
+]
+modules.keySet().each { evaluationDependsOn(":${it}") }
 
 javaPlatform {
     allowDependencies()
@@ -15,13 +23,9 @@ dependencies {
     api platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
 
     constraints {
-        api "com.restonic4.bloom:bloom-events:${project(':events').version}"
-
-        api "com.restonic4.bloom:bloom-core:${version}"
-        api "com.restonic4.bloom:bloom-assets:${version}"
-        api "com.restonic4.bloom:bloom-window-glfw:${version}"
-        api "com.restonic4.bloom:bloom-render-opengl:${version}"
-        api "com.restonic4.bloom:bloom-render-vulkan:${version}"
+        modules.each { path, artifact ->
+            api "${group}:${artifact}:${project(":${path}").version}"
+        }
     }
 }
 
