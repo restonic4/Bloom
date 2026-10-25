@@ -9,7 +9,6 @@ import com.restonic4.bloom.core.platform.WindowSystem;
 import com.restonic4.bloom.core.window.Window;
 import com.restonic4.bloom.events.EventResult;
 import org.lwjgl.glfw.*;
-import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -27,10 +26,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
 import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
-import static org.lwjgl.opengl.GL11.glViewport;
 
 public class GlfwWindow extends Window {
-    private final GraphicsApi api;
     private final long handle;
 
     private GLFWWindowSizeCallback sizeCallback;
@@ -53,7 +50,6 @@ public class GlfwWindow extends Window {
 
     public GlfwWindow(GraphicsApi api, int width, int height, WindowSystem windowSystem) {
         super(width, height);
-        this.api = api;
 
         // Print GLFW errors to stderr
         GLFWErrorCallback.createPrint(System.err).set();
@@ -104,7 +100,6 @@ public class GlfwWindow extends Window {
 
         glfwMakeContextCurrent(handle);
         glfwSwapInterval(1); // vsynq for now
-        GL.createCapabilities();
     }
 
     private void installEvents() {
@@ -117,10 +112,6 @@ public class GlfwWindow extends Window {
 
             this.width = width;
             this.height = height;
-
-            if (api == GraphicsApi.OPENGL) {
-                glViewport(0, 0, width, height);
-            }
         });
 
         posCallback = glfwSetWindowPosCallback(this.handle, (window, x, y) -> {

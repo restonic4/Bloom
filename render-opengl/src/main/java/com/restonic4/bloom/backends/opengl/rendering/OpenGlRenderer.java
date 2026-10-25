@@ -14,6 +14,7 @@ import com.restonic4.bloom.core.scene.Scene;
 import com.restonic4.bloom.core.scene.StaticChunk;
 import com.restonic4.bloom.core.scene.Texture;
 import org.joml.Matrix4fc;
+import org.lwjgl.opengl.GL;
 
 import java.nio.FloatBuffer;
 import java.util.HashMap;
@@ -48,10 +49,13 @@ public class OpenGlRenderer implements Disposable {
 
     public OpenGlRenderer(FrameProfiler profiler) {
         this.profiler = profiler;
+        GL.createCapabilities();
         this.shader = OpenGlShaderProgram.fromResources("core.vsh", "core.fsh");;
     }
 
     public void render(Camera mainCamera, RenderTarget renderTarget, Scene scene, float[] color) {
+        glViewport(0, 0, renderTarget.getWidth(), renderTarget.getHeight());
+
         shader.bind();
         shader.set("uTexture", 0);
 
