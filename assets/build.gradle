@@ -1,5 +1,6 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.publishing'
     id 'bloom.lwjgl-natives'
 }
 
@@ -22,4 +23,11 @@ dependencies {
 
 tasks.named("test", Test) {
     useJUnitPlatform()
+}
+
+mavenPublishing {
+    pom {
+        name = 'Bloom assets'
+        description = 'Mesh, image and texture loading for the Bloom game engine (assimp and stb).'
+    }
 }

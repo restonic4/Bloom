@@ -7,34 +7,28 @@ plugins {
 def targetPlatform = providers.gradleProperty("targetPlatform").getOrElse("local")
 
 dependencies {
-    implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
-
-    implementation "org.lwjgl:lwjgl"
-    implementation "org.lwjgl:lwjgl-glfw"
-    implementation "org.lwjgl:lwjgl-openal"
-    implementation "org.lwjgl:lwjgl-opengl"
-    implementation "org.lwjgl:lwjgl-vulkan"
-    implementation "org.lwjgl:lwjgl-assimp"
-    implementation "org.lwjgl:lwjgl-shaderc"
-    implementation "org.lwjgl:lwjgl-stb"
-    implementation "org.lwjgl:lwjgl-vma"
-
-    runtimeOnly lwjglNative("lwjgl")
-    runtimeOnly lwjglNative("lwjgl-glfw")
-    runtimeOnly lwjglNative("lwjgl-openal")
-    runtimeOnly lwjglNative("lwjgl-opengl")
-    runtimeOnly lwjglNative("lwjgl-assimp")
-    runtimeOnly lwjglNative("lwjgl-shaderc")
-    runtimeOnly lwjglNative("lwjgl-stb")
-    runtimeOnly lwjglNative("lwjgl-vma")
-
-    implementation "org.joml:joml:1.10.8"
+    // Same setup as a game that uses the published artifacts: the BOM sets every version
+    implementation platform(project(':bom'))
 
     implementation project(':core')
     implementation project(':window-glfw')
     implementation project(':render-opengl')
     implementation project(':render-vulkan')
     implementation project(':assets')
+
+    // OpenGlTest and VulkanTest still call LWJGL directly
+    implementation "org.lwjgl:lwjgl"
+    implementation "org.lwjgl:lwjgl-glfw"
+    implementation "org.lwjgl:lwjgl-opengl"
+    implementation "org.lwjgl:lwjgl-vulkan"
+
+    runtimeOnly lwjglNative("lwjgl")
+    runtimeOnly lwjglNative("lwjgl-glfw")
+    runtimeOnly lwjglNative("lwjgl-opengl")
+    runtimeOnly lwjglNative("lwjgl-assimp")
+    runtimeOnly lwjglNative("lwjgl-shaderc")
+    runtimeOnly lwjglNative("lwjgl-stb")
+    runtimeOnly lwjglNative("lwjgl-vma")
 }
 
 application {

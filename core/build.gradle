@@ -1,5 +1,6 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.publishing'
 }
 
 dependencies {
@@ -18,4 +19,11 @@ dependencies {
 
 tasks.named("test", Test) {
     useJUnitPlatform()
+}
+
+mavenPublishing {
+    pom {
+        name = 'Bloom core'
+        description = 'Core of the Bloom game engine: scene data, math, input, launch options and the renderer-facing API.'
+    }
 }

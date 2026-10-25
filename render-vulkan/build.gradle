@@ -1,5 +1,6 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.publishing'
 }
 
 dependencies {
@@ -19,4 +20,11 @@ dependencies {
 
 tasks.named("test", Test) {
     useJUnitPlatform()
+}
+
+mavenPublishing {
+    pom {
+        name = 'Bloom render-vulkan'
+        description = 'Vulkan renderer backend for the Bloom game engine.'
+    }
 }

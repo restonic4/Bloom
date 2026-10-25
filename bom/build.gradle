@@ -15,7 +15,7 @@ dependencies {
     api platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
 
     constraints {
-        api "com.restonic4.bloom:events:${project(':events').version}"
+        api "com.restonic4.bloom:bloom-events:${project(':events').version}"
 
         api "com.restonic4.bloom:bloom-core:${version}"
         api "com.restonic4.bloom:bloom-assets:${version}"

@@ -1,5 +1,6 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.publishing'
 }
 
 dependencies {
@@ -8,4 +9,11 @@ dependencies {
     implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
     implementation "org.lwjgl:lwjgl"
     implementation "org.lwjgl:lwjgl-glfw"
+}
+
+mavenPublishing {
+    pom {
+        name = 'Bloom window-glfw'
+        description = 'GLFW window and input backend for the Bloom game engine.'
+    }
 }

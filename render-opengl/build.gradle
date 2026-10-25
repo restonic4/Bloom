@@ -1,5 +1,6 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.publishing'
 }
 
 dependencies {
@@ -8,4 +9,11 @@ dependencies {
     implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
     implementation "org.lwjgl:lwjgl"
     implementation "org.lwjgl:lwjgl-opengl"
+}
+
+mavenPublishing {
+    pom {
+        name = 'Bloom render-opengl'
+        description = 'OpenGL renderer backend for the Bloom game engine.'
+    }
 }

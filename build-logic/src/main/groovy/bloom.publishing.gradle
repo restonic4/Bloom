@@ -7,9 +7,17 @@ signing {
     useGpgCmd()
 }
 
+// Only Maven Central needs signed artifacts; publishToMavenLocal works without a GPG key
+tasks.withType(Sign).configureEach {
+    onlyIf { gradle.taskGraph.allTasks.any { it.name.contains("MavenCentral") } }
+}
+
 mavenPublishing {
     publishToMavenCentral(true)
     signAllPublications()
+
+    // Every module publishes as bloom-<module>; set the version in the module's gradle.properties if it has its own line
+    coordinates(project.group.toString(), "bloom-${project.name}".toString(), project.version.toString())
 
     pom {
         url = 'https://github.com/restonic4/Bloom'

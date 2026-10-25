@@ -4,7 +4,6 @@ plugins {
 }
 
 group = 'com.restonic4.bloom'
-version = '1.0.0'
 
 java {
     toolchain {
@@ -17,8 +16,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 mavenPublishing {
-    coordinates(project.group.toString(), 'events', project.version.toString())
-
     pom {
         name = 'BloomEvents'
         description = 'Event system extracted from the Bloom game engine.'
