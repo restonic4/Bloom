@@ -10,14 +10,6 @@ public final class Texture {
         this.wrapMode = wrapMode;
     }
 
-    public static Texture load(String resourcePath) {
-        return load(resourcePath, WrapMode.CLAMP);
-    }
-
-    public static Texture load(String resourcePath, WrapMode wrapMode) {
-        return new Texture(ImageData.load(resourcePath), wrapMode);
-    }
-
     public ImageData image() { return image; }
     public WrapMode wrapMode() { return wrapMode; }
 }

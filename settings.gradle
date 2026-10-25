@@ -4,4 +4,4 @@ pluginManagement {
 
 rootProject.name = 'Bloom'
 
-include 'events', 'core', 'window-glfw', 'render-opengl', 'render-vulkan', 'demo-game'
+include 'events', 'core', 'window-glfw', 'render-opengl', 'render-vulkan', 'assets', 'demo-game'

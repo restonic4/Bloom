@@ -10,8 +10,6 @@ dependencies {
 
     implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
     implementation "org.lwjgl:lwjgl"
-    implementation "org.lwjgl:lwjgl-assimp"
-    implementation "org.lwjgl:lwjgl-stb"
 
     testImplementation platform("org.junit:junit-bom:5.11.4")
     testImplementation "org.junit.jupiter:junit-jupiter"

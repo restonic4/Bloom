@@ -66,6 +66,7 @@ dependencies {
     implementation project(':window-glfw')
     implementation project(':render-opengl')
     implementation project(':render-vulkan')
+    implementation project(':assets')
 }
 
 application {

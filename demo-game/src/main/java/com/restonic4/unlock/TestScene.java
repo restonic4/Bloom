@@ -7,6 +7,8 @@ import com.restonic4.bloom.core.input.Key;
 import com.restonic4.bloom.core.input.MouseButton;
 import com.restonic4.bloom.core.math.FrameStats;
 import com.restonic4.bloom.core.math.FrameProfiler;
+import com.restonic4.bloom.assets.MeshLoader;
+import com.restonic4.bloom.assets.TextureLoader;
 import com.restonic4.bloom.core.math.ProfileLog;
 import com.restonic4.bloom.core.math.Transform;
 import com.restonic4.bloom.core.scene.Camera;
@@ -42,7 +44,7 @@ public final class TestScene {
     private static final int BIG_STRESS_COUNT = 400_000;
     private static final float STRESS_RANGE = 200.0f;
 
-    private final MeshData mesh = MeshData.load("Cube.glb").getFirst();
+    private final MeshData mesh = MeshLoader.load("Cube.glb").getFirst();
     private final MeshData planeMesh = createPlane(10.0f, 10.0f);
     private final Camera camera = new Camera();
     private final FlyCameraController flyCamera = new FlyCameraController();
@@ -51,9 +53,9 @@ public final class TestScene {
     private double profiledSeconds;
     private boolean spinning = true;
 
-    private final Texture checker = Texture.load("checker.png");
+    private final Texture checker = TextureLoader.load("checker.png");
     private final Material cubeMaterial = new Material(checker);
-    private final Texture grid = Texture.load("grid.png", WrapMode.REPEAT);
+    private final Texture grid = TextureLoader.load("grid.png", WrapMode.REPEAT);
     private final Material planeMaterial = new Material(grid);
 
     private final Scene renderScene = new Scene();

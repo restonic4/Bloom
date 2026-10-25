@@ -6,7 +6,6 @@ import org.lwjgl.BufferUtils;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.List;
 
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
@@ -131,10 +130,6 @@ public class OpenGlMesh implements Disposable {
         glDeleteBuffers(indexVbo);
         glDeleteBuffers(instanceVbo);
         glDeleteVertexArrays(vao);
-    }
-
-    public static List<OpenGlMesh> load(String resourcePath) {
-        return MeshData.load(resourcePath).stream().map(OpenGlMesh::new).toList();
     }
 
     public MeshData getData() { return data; }

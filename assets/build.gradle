@@ -1,0 +1,12 @@
+plugins {
+    id 'bloom.java-library'
+}
+
+dependencies {
+    api project(':core')
+
+    implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+    implementation "org.lwjgl:lwjgl"
+    implementation "org.lwjgl:lwjgl-assimp"
+    implementation "org.lwjgl:lwjgl-stb"
+}
