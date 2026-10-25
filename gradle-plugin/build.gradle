@@ -1,0 +1,39 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'bloom.java-library'
+    id 'bloom.publishing'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+gradlePlugin {
+    plugins {
+        bloom {
+            id = 'com.restonic4.bloom'
+            implementationClass = 'com.restonic4.bloom.gradle.BloomPlugin'
+            displayName = 'Bloom'
+            description = 'Adds Bloom modules and the matching LWJGL natives to a Gradle project.'
+        }
+    }
+}
+
+dependencies {
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named("test", Test) {
+    useJUnitPlatform()
+}
+
+mavenPublishing {
+    pom {
+        name = 'Bloom Gradle plugin'
+        description = 'Gradle plugin that adds Bloom modules and the matching LWJGL natives for the chosen operating systems.'
+    }
+}
