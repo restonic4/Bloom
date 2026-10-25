@@ -1,0 +1,19 @@
+// Selects the LWJGL natives classifier: the host's, or -PlwjglNatives=natives-windows etc. to build for another OS.
+// Libraries never ship natives; modules that run code needing them (tests, the demo) ask for them here.
+
+static String detectHostNatives() {
+    def os = System.getProperty("os.name").toLowerCase()
+    def arch = System.getProperty("os.arch").toLowerCase()
+    def arm64 = arch.startsWith("aarch64") || arch.startsWith("arm64")
+
+    if (os.contains("linux")) return arm64 ? "natives-linux-arm64" : "natives-linux"
+    if (os.contains("freebsd")) return "natives-freebsd"
+    if (os.contains("mac")) return arm64 ? "natives-macos-arm64" : "natives-macos"
+    if (os.contains("windows")) return arm64 ? "natives-windows-arm64" : "natives-windows"
+
+    throw new GradleException("Unsupported host OS: ${os}")
+}
+
+def classifier = providers.gradleProperty("lwjglNatives").getOrElse(detectHostNatives())
+
+ext.lwjglNative = { String module -> "org.lwjgl:${module}::${classifier}" }

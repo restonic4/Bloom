@@ -1,5 +1,6 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.lwjgl-natives'
 }
 
 dependencies {
@@ -9,4 +10,16 @@ dependencies {
     implementation "org.lwjgl:lwjgl"
     implementation "org.lwjgl:lwjgl-assimp"
     implementation "org.lwjgl:lwjgl-stb"
+
+    testRuntimeOnly lwjglNative("lwjgl")
+    testRuntimeOnly lwjglNative("lwjgl-assimp")
+    testRuntimeOnly lwjglNative("lwjgl-stb")
+
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named("test", Test) {
+    useJUnitPlatform()
 }

@@ -1,41 +1,9 @@
 plugins {
     id 'bloom.java-library'
+    id 'bloom.lwjgl-natives'
     id 'application'
 }
 
-static def detectHostNatives() {
-    def os = System.getProperty("os.name").toLowerCase()
-    def arch = System.getProperty("os.arch").toLowerCase()
-
-    if (os.contains("linux")) {
-        if (arch.startsWith("aarch64") || arch.startsWith("arm64")) {
-            return "natives-linux-arm64"
-        }
-        return "natives-linux"
-    }
-
-    if (os.contains("freebsd")) {
-        return "natives-freebsd"
-    }
-
-    if (os.contains("mac")) {
-        if (arch.startsWith("aarch64") || arch.startsWith("arm64")) {
-            return "natives-macos-arm64"
-        }
-        return "natives-macos"
-    }
-
-    if (os.contains("windows")) {
-        if (arch.startsWith("aarch64") || arch.startsWith("arm64")) {
-            return "natives-windows-arm64"
-        }
-        return "natives-windows"
-    }
-
-    throw new GradleException("Unsupported host OS: ${os}")
-}
-
-def lwjglNatives = providers.gradleProperty("lwjglNatives").getOrElse(detectHostNatives())
 def targetPlatform = providers.gradleProperty("targetPlatform").getOrElse("local")
 
 dependencies {
@@ -51,14 +19,14 @@ dependencies {
     implementation "org.lwjgl:lwjgl-stb"
     implementation "org.lwjgl:lwjgl-vma"
 
-    runtimeOnly "org.lwjgl:lwjgl::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-glfw::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-openal::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-opengl::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-assimp::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-shaderc::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-stb::${lwjglNatives}"
-    runtimeOnly "org.lwjgl:lwjgl-vma::${lwjglNatives}"
+    runtimeOnly lwjglNative("lwjgl")
+    runtimeOnly lwjglNative("lwjgl-glfw")
+    runtimeOnly lwjglNative("lwjgl-openal")
+    runtimeOnly lwjglNative("lwjgl-opengl")
+    runtimeOnly lwjglNative("lwjgl-assimp")
+    runtimeOnly lwjglNative("lwjgl-shaderc")
+    runtimeOnly lwjglNative("lwjgl-stb")
+    runtimeOnly lwjglNative("lwjgl-vma")
 
     implementation "org.joml:joml:1.10.8"
 
