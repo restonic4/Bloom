@@ -69,8 +69,8 @@ dependencies {
 
     implementation "org.joml:joml:1.10.8"
 
-    implementation "com.restonic4.bloom:events:${bloomEventsVersion}"
-    annotationProcessor "com.restonic4.bloom:events:${bloomEventsVersion}"
+    implementation project(':events')
+    annotationProcessor project(':events')
 
     testImplementation platform("org.junit:junit-bom:5.11.4")
     testImplementation "org.junit.jupiter:junit-jupiter"

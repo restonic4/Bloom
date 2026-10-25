@@ -1,17 +1,10 @@
 plugins {
-    id 'java-library'
-    id 'signing'
-    id 'com.vanniktech.maven.publish' version '0.37.0'
+    id 'bloom.java-library'
+    id 'bloom.publishing'
 }
 
 group = 'com.restonic4.bloom'
 version = '1.0.0'
-
-repositories {
-    mavenCentral()
-}
-
-dependencies { }
 
 java {
     toolchain {
@@ -19,50 +12,15 @@ java {
     }
 }
 
-signing {
-    useGpgCmd()
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-proc:none']
 }
 
 mavenPublishing {
-    publishToMavenCentral(true)
-    signAllPublications()
-
-    coordinates(
-            project.group.toString(),
-            'events',
-            project.version.toString()
-    )
+    coordinates(project.group.toString(), 'events', project.version.toString())
 
     pom {
         name = 'BloomEvents'
         description = 'Event system extracted from the Bloom game engine.'
-        url = 'https://github.com/restonic4/BloomEvents'
-
-        licenses {
-            license {
-                name = 'MIT License'
-                url = 'https://opensource.org/license/mit/'
-                distribution = 'repo'
-            }
-        }
-
-        developers {
-            developer {
-                id = 'restonic4'
-                name = 'restonic4'
-                url = 'https://github.com/restonic4'
-            }
-        }
-
-        scm {
-            connection = 'scm:git:git://github.com/restonic4/BloomEvents.git'
-            developerConnection = 'scm:git:ssh://git@github.com/restonic4/BloomEvents.git'
-            url = 'https://github.com/restonic4/BloomEvents'
-        }
     }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-    options.compilerArgs += ['-proc:none']
 }

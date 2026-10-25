@@ -1,0 +1,39 @@
+plugins {
+    id 'signing'
+    id 'com.vanniktech.maven.publish'
+}
+
+signing {
+    useGpgCmd()
+}
+
+mavenPublishing {
+    publishToMavenCentral(true)
+    signAllPublications()
+
+    pom {
+        url = 'https://github.com/restonic4/Bloom'
+
+        licenses {
+            license {
+                name = 'MIT License'
+                url = 'https://opensource.org/license/mit/'
+                distribution = 'repo'
+            }
+        }
+
+        developers {
+            developer {
+                id = 'restonic4'
+                name = 'restonic4'
+                url = 'https://github.com/restonic4'
+            }
+        }
+
+        scm {
+            connection = 'scm:git:git://github.com/restonic4/Bloom.git'
+            developerConnection = 'scm:git:ssh://git@github.com/restonic4/Bloom.git'
+            url = 'https://github.com/restonic4/Bloom'
+        }
+    }
+}

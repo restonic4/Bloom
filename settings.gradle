@@ -1,1 +1,7 @@
+pluginManagement {
+    includeBuild 'build-logic'
+}
+
 rootProject.name = 'Bloom'
+
+include 'events'
