@@ -7,7 +7,7 @@ dependencies {
     api project(':events')
     annotationProcessor project(':events')
 
-    api "org.joml:joml:1.10.8"
+    api "org.joml:joml:1.10.9"
 
     implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
     implementation "org.lwjgl:lwjgl"
